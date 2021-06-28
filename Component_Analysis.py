@@ -135,7 +135,7 @@ def onpick(event):
 
 
 fig.canvas.mpl_connect('pick_event', onpick)
-#plt.show(block = False)                            ############# CHANGE THIS BACK
+plt.show(block = False)
 input()
 
 
@@ -144,7 +144,7 @@ input()
 
 
 
-
+'''
 
 
 
@@ -173,9 +173,7 @@ def onpick(event):
 fig2.canvas.mpl_connect('pick_event', onpick)
 plt.show(block = False)
 input()
-
-
-
+'''
 
 
 

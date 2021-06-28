@@ -73,6 +73,8 @@ if __name__ == '__main__':
             #print(lc.computed_freq_power)
             #plt.scatter(*lc.periodogram, s= 0.5)
             #plt.show()
+
+
             '''
             ind = np.argpartition(lc.periodogram[1], -10)[-10:]
             top_10_freq = lc.periodogram[0][ind]
