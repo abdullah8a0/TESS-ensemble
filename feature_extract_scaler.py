@@ -1,3 +1,4 @@
+from datetime import time
 import numpy as np
 import statsmodels.tsa.stattools as stattools
 import scipy as sp
@@ -7,7 +8,7 @@ import astropy.stats as astat
 import plot_lc
 from plot_lc import get_coords_from_path
 import os
-from lcobj import LCMissingDataError, LCOutOfBoundsError, gen_path, lc_obj
+from lcobj import LC, LCMissingDataError, LCOutOfBoundsError, gen_path, LC
 
 
 sector = 6
@@ -19,7 +20,7 @@ for cam,ccd in np.ndindex((4,4)):
 
     sector2 = str(sector) if sector > 9 else '0'+str(sector)
     path = gen_path(sector,cam,ccd,0,0)[:-6]
-    with open(f'Features\\features{sector2}_{cam}_{ccd}.txt', 'w') as file, os.scandir(path) as entries:
+    with open(f'Features\\features{sector2}_{cam}_{ccd}_s.txt', 'w') as file, os.scandir(path) as entries:
         for i,entry in enumerate(entries):
             if i%10 == 0:
                 print(i)
@@ -29,7 +30,7 @@ for cam,ccd in np.ndindex((4,4)):
                     continue
                 file_path = path + entry.name
                 try:
-                    lc = lc_obj(sector,cam,ccd,*get_coords_from_path(entry.name))
+                    lc = LC(sector,cam,ccd,*get_coords_from_path(entry.name))
                 except TypeError:
                     print("empty: ", entry.name)
                     continue
@@ -118,9 +119,21 @@ for cam,ccd in np.ndindex((4,4)):
                 
                 perr = r2_score(lc.smooth_flux,fit)
                 
-                # Neumann's Variability Index
+                # Neumann's Variability Index (for unevenly spaced data)
 
-                var_ind = 1/((lc.N - 1)*std**2) * np.sum((lc.flux[1:] - lc.flux[:-1])**2)
+                w = 1 / (lc.time[1:]-lc.time[:-1])**2
+                w_mean = np.mean(w)
+
+                var_lc = np.var(lc.flux)
+
+                S1 = sum(w * (lc.flux[1:]-lc.flux[:-1])**2)
+                S2 = sum(w)
+
+                var_ind = (w_mean * np.power(lc.time[lc.N - 1] - lc.time[0], 2) * S1 / (var_lc * S2 * lc.N ** 2))
+
+                #var_ind = 1/((lc.N - 1)*std**2) * np.sum((lc.flux[1:] - lc.flux[:-1])**2)
+
+                #check of clusteral anomalies
 
                 # Median Deviation
 
@@ -216,14 +229,37 @@ for cam,ccd in np.ndindex((4,4)):
                 S = np.cumsum(lc.flux - mean)*1/(lc.N * std)
                 Rcs =  np.max(S) - np.min(S)
                 
+               # Days of interest
                 
+                granularity = 1.0           # In days
+                bins = granularity*np.arange(int((lc.time[-1]-lc.time[0])/granularity) + 2)
+                bin_map = np.digitize(lc.time-lc.time[0], bins)
+
+                interesting_d = 0
+                total_d = 0
+                for bin in range(1,np.max(bin_map)+1):
+                    dp_in_bin = np.ma.nonzero(bin_map == bin)
+                    flux, time = lc.smooth_flux[dp_in_bin], lc.time[dp_in_bin]
+                    _, ind = np.unique(time, return_index=True)
+                    flux, time = flux[ind], time[ind]
+
+                    if flux.size in {0,1}:
+                        continue
+
+                    if np.mean(flux) > std + mean:
+                        interesting_d +=1
+
+                    total_d +=1
+                days_of_i = interesting_d/total_d 
+
                 
                 
                 ###############
                 feat = np.array([amp,better_amp,med,mean,std,slope,r,skew,max_slope,\
                 beyond1std, delta_quartiles, flux_mid_20,flux_mid_35, flux_mid_50, \
                 flux_mid_65, flux_mid_80, cons, slope_trend, var_ind, med_abs_dev, \
-                H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)), StetK, p_ander])
+                H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)), StetK, p_ander, days_of_i])
+                
                 coords = plot_lc.get_coords_from_path(file_path)
                 if np.all(np.isfinite(feat)) and  not np.any(np.isnan(feat)):
                     file.write(f'{cam},{ccd},{coords[0]},{coords[1]},')

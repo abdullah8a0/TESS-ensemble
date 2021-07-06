@@ -12,29 +12,18 @@ def get_coords_from_path(file_path):
     y = file_path[d+1:]
     return (x,y)
 
-"""
-def clip(table, base, sigma):
-    # removes entries from 'table' where the 'base'
-    # has variation more than 'sigma' 
-    base_clip = astat.sigma_clip(base,sigma=sigma)
-    return np.array([table[i] for i in np.ma.nonzero(base_clip)[0]])
-
-
-
-    #### DEADZONE CHECK
-
-    coords = get_coords_from_path(file_path)    # column,rows
-    assert 43 < int(coords[0]) < 2091                                                # check for off by one
-    assert int(coords[1]) < 2057
-    print(f'CCD pixel: {coords}')
-
-    ####
-"""
 
 if __name__ == '__main__':
     choice = input("plot all? y/n: ")
 
-    sector, cam, ccd = 6, 1, 1
+    # 21 1 3 980 1248
+
+    # Good:
+
+    #32 2 4 1860 975
+
+
+    sector, cam, ccd = 32, 2, 1
 
     path = lcobj.gen_path(sector,cam,ccd,0,0)[:-6]
     if choice == 'y':
@@ -46,17 +35,14 @@ if __name__ == '__main__':
                     col, row = get_coords_from_path(file_name)
                     print(col,row)
                     try:
-                        lc = lcobj.lc_obj(sector, cam, ccd, col, row)
+                        lc = lcobj.LC(sector, cam, ccd, col, row)
                     except:
                         continue
                     lc.plot()
-                    #lc.smooth_plot()
-                    #lc.plot(flux=lc.flat(smooth=True))
-                    #peaks = find_peaks(lc.smooth_flux, prominence=5, distance=10, width=10)[0]
-                    #plt.scatter(lc.time[:len(lc.smooth_flux)],lc.smooth_flux, s= 1)
-
-                    #plt.scatter(lc.time[peaks], lc.smooth_flux[peaks])
-                    #plt.show()
+                    lc.pad_flux()
+                    lc.make_FFT()
+                    print(1/lc.significant_fequencies[0][0], lc.significant_fequencies[0][1])
+                    lc.plot_phase()
                     if user_in != '0':
                         user_in = input("Press Enter to continue, type 0 to plot all: ")
                         if user_in == '1':
@@ -67,30 +53,10 @@ if __name__ == '__main__':
             name = input('what is the file name? (0 to exit): ')
             if name == '0':
                 break
-            col, row = get_coords_from_path(name)
-            lc = lcobj.lc_obj(sector,cam,ccd,col,row)
-            #lc.make_periodogram()
-            #print(lc.computed_freq_power)
-            #plt.scatter(*lc.periodogram, s= 0.5)
-            #plt.show()
-
-
-            '''
-            ind = np.argpartition(lc.periodogram[1], -10)[-10:]
-            top_10_freq = lc.periodogram[0][ind]
-            generic = []
-            for i in range(10):
-                if 95.8< top_10_freq[i] < 96.2:
-                    generic.append(i)
-                if 47.8 < top_10_freq[i] < 48.2:
-                    generic.append(i)
-            result = np.delete(top_10_freq,generic)
-
-            print("Top ten: ", result)
-
-            lc.plot_phase()
-            '''
-            #p_coeff = np.sum(lc.smooth_flux) 
-            #print(p_coeff)
+            cam,ccd,col, row = name.split()
+            try:
+                lc = lcobj.LC(sector,cam,ccd,col,row)
+            except OSError:
+                continue
             lc.smooth_plot()            
             lc.plot()

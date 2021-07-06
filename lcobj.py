@@ -26,7 +26,7 @@ class LCOutOfBoundsError(Exception):
 class LCMissingDataError(Exception):
     pass
 
-class lc_obj(object):
+class LC(object):
     def __init__(self, sector, cam, ccd, col, row):
         try:
             assert 44 <= int(col) <= 2097
@@ -66,6 +66,10 @@ class lc_obj(object):
         self.mean = np.mean(self.flux)
         self.std = np.std(self.flux)
 
+        try:
+            assert self.N >60
+        except AssertionError:
+            raise LCMissingDataError
 
         # Smoothing using SavGol Filter
         
@@ -188,4 +192,30 @@ class lc_obj(object):
     def smooth_plot(self):
         plt.scatter(np.arange(len(self.smooth_flux)), self.smooth_flux, s=0.5)
         plt.show()
+
+def get_sector_data(sectors,t,verbose=True):
+    assert t in ('s','v')
+
+    if not hasattr(sectors, '__iter__'):
+        sectors = [sectors]       
+
+    for sector in sectors:
+        sector2 = str(sector) if sector > 9 else '0'+str(sector)
+        flag = True
+        for cam,ccd in np.ndindex((4,4)):
+            cam +=1
+            ccd +=1
+            if verbose:
+                print("Loading:", sector,cam,ccd)
+            if flag:
+                data_raw =np.genfromtxt(base + f"py_code\\Features\\features{sector2}_{cam}_{ccd}_{t}.txt", delimiter=',')
+                if data_raw.all():
+                    continue
+                flag = False 
+            else:
+                data_raw_ccd = np.genfromtxt(base + f"py_code\\Features\\features{sector2}_{cam}_{ccd}_{t}.txt", delimiter=',')
+                if data_raw_ccd.all():
+                    continue
+                data_raw = np.concatenate((data_raw, data_raw_ccd))
+        yield data_raw[::,:4], data_raw[::,4:]
 
