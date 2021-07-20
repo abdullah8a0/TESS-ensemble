@@ -1,3 +1,4 @@
+from tokenize import Name
 import numpy as np
 from astropy import stats as astat
 import matplotlib.pyplot as plt
@@ -7,18 +8,29 @@ from scipy import stats,signal
 import math
 from astropy.timeseries import LombScargle
 
-base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\"                 # Change this to the folder where your transient_lcs is located
-ccd_path_raw = ["transient_lcs\\unzipped_ccd\\s","_transient_lc\\sector","\\cam","_ccd","\\lc_transient_pipeline\\"]
 
+
+def set_base(loc):
+    global base
+    base = loc
+
+
+#working_folder = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\"
 
 def gen_path(sector,cam,ccd,col,row):
     # Generates path to specific file
     file_name = 'lc_'+str(col)+'.'+str(row)
 
+    ccd_path_raw = ["s","_transient_lc\\sector","\\cam","_ccd","\\lc_transient_pipeline\\"]
     sector2 = str(sector) if sector > 9 else '0'+str(sector)
     ccd_path = ccd_path_raw[0]+sector2+ccd_path_raw[1]+sector2+ccd_path_raw[2]+str(cam)+ccd_path_raw[3]+str(ccd)+ccd_path_raw[4]
 
-    file_path = base + ccd_path + file_name
+    try:
+        file_path = base + ccd_path + file_name
+    except NameError:
+        from run_classif import base
+        set_base(base)
+        file_path = base + ccd_path + file_name
     return file_path
 
 class LCOutOfBoundsError(Exception):
@@ -44,7 +56,7 @@ class LC(object):
         try:
             assert len(lc_data.shape) == 2
         except AssertionError:
-            raise LCMissingDataError
+            raise LCMissingDataError("The flux file is almost empty")
 
 
         self.flux_unclipped = -lc_data[:, 1]
@@ -60,7 +72,7 @@ class LC(object):
         self.bg = np.array([self.bg_unclipped[i] for i in np.ma.nonzero(bg_clip)[0]])
 
         if len(self.flux) < 10:
-            raise TypeError
+            raise LCMissingDataError("The flux file has less than 10 entries")
 
         self.N = len(self.flux)
         self.mean = np.mean(self.flux)
@@ -69,12 +81,13 @@ class LC(object):
         try:
             assert self.N >60
         except AssertionError:
-            raise LCMissingDataError
+            raise LCMissingDataError("The flux file has less than 60 entries")
 
         # Smoothing using SavGol Filter
-        
-        self.smooth_flux = signal.savgol_filter(self.flux, min((1|int(0.05*self.N),61)), 3)
-
+        try: 
+            self.smooth_flux = signal.savgol_filter(self.flux, min((1|int(0.05*self.N),61)), 3)
+        except:
+            raise LCMissingDataError
         self.linreg = stats.linregress(self.time,self.flux)[0:3]  #(slope,c,r)
 
         self.is_padded = False
@@ -194,13 +207,15 @@ class LC(object):
         plt.show()
 
 def get_sector_data(sectors,t,verbose=True):
+    #include sectors as 3rd output
     assert t in ('s','v')
 
     if not hasattr(sectors, '__iter__'):
         sectors = [sectors]       
 
+
     for sector in sectors:
-        sector2 = str(sector) if sector > 9 else '0'+str(sector)
+        sector2 = str(sector) if int(sector) > 9 else '0'+str(sector)
         flag = True
         for cam,ccd in np.ndindex((4,4)):
             cam +=1
@@ -208,14 +223,26 @@ def get_sector_data(sectors,t,verbose=True):
             if verbose:
                 print("Loading:", sector,cam,ccd)
             if flag:
-                data_raw =np.genfromtxt(base + f"py_code\\Features\\features{sector2}_{cam}_{ccd}_{t}.txt", delimiter=',')
+                data_raw =np.genfromtxt(f"Features\\features{sector2}_{cam}_{ccd}_{t}.txt", delimiter=',')
                 if data_raw.all():
                     continue
                 flag = False 
             else:
-                data_raw_ccd = np.genfromtxt(base + f"py_code\\Features\\features{sector2}_{cam}_{ccd}_{t}.txt", delimiter=',')
+                data_raw_ccd = np.genfromtxt(f"Features\\features{sector2}_{cam}_{ccd}_{t}.txt", delimiter=',')
                 if data_raw_ccd.all():
                     continue
                 data_raw = np.concatenate((data_raw, data_raw_ccd))
-        yield data_raw[::,:4], data_raw[::,4:]
+        yield data_raw[::,:4].astype(int), data_raw[::,4:]
 
+
+def get_coords_from_path(file_path):
+    # returns coords from any file path
+    i = file_path.rfind('lc_')
+    d = file_path.rfind('.')
+
+    x = file_path[i+3:d]
+    y = file_path[d+1:]
+    return (x,y)
+if __name__ == '__main__':
+    
+    set_base("C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\")                 # Change this to the folder where your sxx_transient_lcs is located
