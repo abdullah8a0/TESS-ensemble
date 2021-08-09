@@ -69,13 +69,13 @@ def find_effects(sector, RTS_, HTP_):
     RTS = [int(i) for i in RTS_] if RTS_ is not None else []
     HTP = [int(i) for i in HTP_] if HTP_ is not None else []
     data = np.genfromtxt(f'Processed\\{sector}.txt',delimiter=',').astype('int32')[:,:-1]
-    tags, _ = next(get_sector_data(sector,'s',verbose=False))                                            # Maybe no need to generate another data pack, reuse old?
+    tags,clus = data[:,:4],data[:,4]
+    tags = tags.tolist()
+    tags = sorted(enumerate(tags), key =lambda x:x[1])
+    map = {i:tags[i][0] for i in range(len(tags))}
+    tags = np.array([x[1] for x in tags])                 # reorder feat with tags
     with open(f"Effects\\{sector}_RTS.txt",'w') as rts, open(f"Effects\\{sector}_HTP.txt",'w') as hot:
-        for tag,_ in zip(tags,_):
-            tags = data[:,:4].tolist()
-            tags = sorted(enumerate(tags), key =lambda x:x[1])
-            map = {i:tags[i][0] for i in range(len(tags))}
-            tags = np.array([x[1] for x in tags])                 # reorder feat with tags
+        for tag in tags:
             if  (k := data[map[bin_search(tags,tag)]][4]) in HTP:
                 np.savetxt(hot,tag.reshape((1,4)),delimiter = ',',fmt='%1.i')
                 #hot.write('\n')

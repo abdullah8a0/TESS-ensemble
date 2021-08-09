@@ -1,13 +1,10 @@
-from tokenize import Name
 import numpy as np
 from astropy import stats as astat
 import matplotlib.pyplot as plt
 import pylab
-import scipy as sp
 from scipy import stats,signal
 import math
-from astropy.timeseries import LombScargle
-
+from sklearn.ensemble import IsolationForest
 
 
 def set_base(loc):
@@ -94,22 +91,54 @@ class LC(object):
         self.is_FFT = False         # Flags whether the instance has these attributes
         self.is_percentiles = False  
 
-        self.normed_flux = (self.flux - self.mean)/np.max(np.abs(self.flux))
+        self.normed_flux = (self.flux - self.mean)/np.max(np.abs(self.flux-self.mean))
 
-    def plot(self, flux = None, time = None, show_bg = True, show_err = False):
+    def plot(self, flux = None, time = None, show_bg = True, show_err = False,show_smooth=False,scatter=[]):
         flux = self.flux if flux is None else flux
         time = self.time if time is None else time
 
         #fig = pylab.gcf()
         #fig.canvas.manager.set_window_title('Figure_'+str(self.coords[0])+'_'+str(self.coords[1]))
         plt.xlabel("Time (Days)")
-        plt.ylabel("True Flux (/10^6)")
+        plt.ylabel("True Flux")
         plt.scatter(time,flux,s=0.5)
         if show_bg:
             plt.scatter(time,self.bg,s=0.1)
         if show_err:
             plt.errorbar(time, flux, yerr=self.error, fmt ='o' )
+        if show_smooth:
+            plt.scatter(time,self.smooth_flux,s=0.1)
+        for data in scatter:
+            try:
+                time_s,flux_s = data
+                plt.scatter(time_s,flux_s,s=0.1)
+            except:
+                plt.scatter(time,data,s=0.1)
         plt.show()
+        return self
+
+    def remove_outliers(self):
+        outlier_detector = IsolationForest(random_state=314,contamination=0.01)
+        forest = outlier_detector.fit_predict(self.normed_flux.reshape(-1,1))
+        inliers = np.ma.nonzero(forest==1)[0]
+        self.normed_flux = self.normed_flux[inliers]
+        self.flux        = self.flux[inliers]
+        self.time        = self.time[inliers]
+        self.error       = self.error[inliers]
+        self.bg          = self.bg[inliers]
+        self.N           = inliers.size
+        self.mean        = np.mean(self.flux)
+        self.std         = np.std(self.flux)
+        self.median      = np.median(self.flux)
+        try: 
+            self.smooth_flux = signal.savgol_filter(self.flux, min((1|int(0.05*self.N),61)), 3)
+        except:
+            raise LCMissingDataError
+
+        if self.N < 60:
+            raise LCMissingDataError
+
+        return self
 
     def make_percentiles(self):
         self.percentiles = {i:np.percentile(self.flux,i) for i in range(0,101,1)}
@@ -206,6 +235,47 @@ class LC(object):
         plt.scatter(np.arange(len(self.smooth_flux)), self.smooth_flux, s=0.5)
         plt.show()
 
+class TagFinder:
+    def __init__(self,tags_original):
+
+        tags = np.copy(tags_original)
+
+        tags = tags.tolist()
+        tags = sorted(enumerate(tags), key =lambda x:x[1])
+        map = {i:tags[i][0] for i in range(len(tags))}
+        tags = np.array([x[1] for x in tags])                 # reorder feat with tags
+        self.tags = tags
+        self.map = map
+    
+    def find(self,tag):
+        return self.map[self.bin_search(np.array(tag))]
+
+
+
+    def gt(self,x,y):
+        return self.lt(y,x)
+
+    def bin_search(self,tag) -> int:
+        tags = self.tags
+        upper = tags.shape[0]-1
+        lower = 0
+        while lower <= upper:
+            mid = (upper + lower)//2
+            if self.lt(tags[mid], tag):
+                lower = mid + 1
+            elif self.gt(tags[mid] , tag):
+                upper = mid - 1
+            else:
+                return mid
+        raise Exception("Tag is not in the data")
+
+    def lt(self,x,y):
+        if (x==y).all():
+            return False
+        idx = np.where((x!=y))[0][0]
+        #print(x[idx])
+        return x[idx]< y[idx]
+
 def get_sector_data(sectors,t,verbose=True):
     #include sectors as 3rd output
     assert t in ('s','v')
@@ -231,8 +301,16 @@ def get_sector_data(sectors,t,verbose=True):
                 data_raw_ccd = np.genfromtxt(f"Features\\features{sector2}_{cam}_{ccd}_{t}.txt", delimiter=',')
                 if data_raw_ccd.all():
                     continue
-                data_raw = np.concatenate((data_raw, data_raw_ccd))
-        yield data_raw[::,:4].astype(int), data_raw[::,4:]
+                if len(data_raw_ccd.shape) == 1:
+                    continue
+                if data_raw_ccd.size!=0:
+                    data_raw = np.concatenate((data_raw, data_raw_ccd))
+
+        tags, data = data_raw[::,1:5].astype(int), data_raw[::,5:]  
+        if t=='s' and 0:
+            data = np.delete(data,[],1)
+
+        yield tags,data
 
 
 def get_coords_from_path(file_path):

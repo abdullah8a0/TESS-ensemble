@@ -1,17 +1,19 @@
 import os
 import numpy as np
-from lcobj import working_folder,gen_path
+from lcobj import gen_path
 from shutil import copyfile
+
+working_folder = 'C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\'
 
 def spec(x):
     return int(round(float(x)))
 
-transients = np.genfromtxt(working_folder +"py_code\\count_transients_s1-34.txt",dtype= str)
-sec_32_t = transients[np.ma.nonzero(transients[:,0]=='33')][:,(3,6,8,9,10,11)]
+sector = 38
+transients = np.genfromtxt(working_folder +"py_code\\count_transients_s1-40.txt",dtype= str)
+sec_32_t = transients[np.ma.nonzero(transients[:,0]==str(sector))][:,(3,7,9,10,11,12)]#3,6,8,9,10,11
 tag, data = sec_32_t[:,1], np.vectorize(spec)(sec_32_t[:,(0,2,3,4,5)])
 
 
-sector = 33
 
 for cam,ccd in np.ndindex((4,4)):
     cam +=1
@@ -20,9 +22,9 @@ for cam,ccd in np.ndindex((4,4)):
 
     sector2 = str(sector) if sector > 9 else '0'+str(sector)
     path2 = gen_path(sector,cam,ccd,0,0)[:-6]
-    path1 = working_folder + f"py_code\\s33_knowns\\cam{cam}_ccd{ccd}"
+    path1 = working_folder + f"py_code\\beta\\kt_33-39\\kt_33-39\\known_transients_s{sector}\\cam{cam}_ccd{ccd}"
     name = []
-    with open(working_folder + "py_code\\33_transients.txt", 'w') as f, os.scandir(path1) as entries:
+    with open(working_folder + f"py_code\\{sector}_transients.txt", 'w') as f, os.scandir(path1) as entries:
         for entry in entries:
             if entry.name[-8:] in {'_cleaned','aned.png'}:
                 continue
