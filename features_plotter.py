@@ -1,19 +1,118 @@
+from cluster_secondary import cluster_secondary_run
 from TOI_gen import TOI_list
 import numpy as np
-from lcobj import get_sector_data, set_base
+from lcobj import LC, get_sector_data, set_base
 import matplotlib.pyplot as plt
 from scipy import stats
 import lcobj
 import concurrent.futures
+from sklearn.mixture import GaussianMixture
 
-
+#(3, 4, 805, 1076)
 def func(tag):
-    lc = lcobj.LC(37,*tag).remove_outliers()
+    lc = lcobj.LC(38,*tag).remove_outliers()
     delta = lc.flux -lc.smooth_flux
     return stats.anderson(delta)[0]
+
+
+    granularity = 1.0/3           # In days
+    bins = granularity*np.arange(round(27/granularity))
+    #print(bins)
+    bin_map = np.digitize(lc.time-lc.time[0], bins)
+
+    signature = []
+    total_d = 0
+    for bin in bins:#range(1,np.max(bin_map)+1):
+        dp_in_bin = np.ma.nonzero(bin_map == round(bin/granularity)+1)
+        flux, time = lc.flux[dp_in_bin], lc.time[dp_in_bin]
+        _, ind = np.unique(time, return_index=True)
+        flux, time = flux[ind], time[ind]
+
+        #print(bin,flux)
+        #input()
+        if flux.size <= 5:
+            signature.append(0)
+            continue
+        if np.mean(flux) > lc.std + lc.mean:
+            signature.append(1)
+        else:
+            signature.append(0)
+
+        total_d +=1
+    #time = [ [t for t in lc.time if lc.time[0] + hr8*granularity <= t < lc.time[0]+(hr8+1)*granularity] for hr8 in range(round(27/granularity))]
+    #fit = []
+    #for day in range(round(27/granularity)):
+    #    i = interesting_d[day]
+    #    fit += [i for t in time[day]]
+
+
+    return signature
+
+def get_feat(tags):
+
+    with concurrent.futures.ProcessPoolExecutor() as executer:
+        results = executer.map(func,tags)
+        data = []
+        for i,feat in enumerate(results):
+            if i%10 == 0:
+                print(i)
+            data.append(feat)
+    return data     #
+
+    data = np.array(data)
+    longs = np.zeros(data.shape[0]).reshape(-1,1)
+    short = np.zeros(data.shape[0]).reshape(-1,1)
+    cons = np.zeros(data.shape[0]).reshape(-1,1)
+    for i in range(data.shape[1]):
+        slice = data[:,i].reshape(-1,1)
+        #print(f'{longs} + {slice} = {longs + slice}')
+
+        cons = np.where(slice==0,slice,cons+slice)
+        short = np.where(cons==1,short + cons,short)
+        longs = np.where(cons==3,longs+slice,longs)
+
+    #print(longs)
+    #print(short)
+    short = (short - longs).reshape(1,-1)[0]
+    longs = longs.reshape(1,-1)[0]
+
+
+    feat = np.logical_and(np.logical_and(longs<3,longs>0),short<2) 
+    return feat
+
+def get_iso_feat(sector,tags,data):
+    from sklearn.ensemble import IsolationForest
+    from cluster_anomaly import scale_simplify,hdbscan_cluster
+
+    transformed_data = scale_simplify(data,True,15)
+    clusterer,labels = hdbscan_cluster(transformed_data,False,None,14,3,'euclidean')
+
+    num_clus =  np.max(labels)
+
+    clus_count = [np.count_nonzero(labels == i) for i in range(-1,1+num_clus)]
+    largest_clus = clus_count.index(max(clus_count))
+    
+
+    clusters = [np.ma.nonzero(labels == i)[0] for i in range(-1,1+num_clus)]
+
+    ind = clusters[largest_clus]
+
+    new_tags= tags[ind,:]
+    transformed_data = transformed_data[ind,:]
+
+    iso = IsolationForest(n_jobs=-1,random_state=314)
+    anomalous = iso.fit_predict(transformed_data)
+    score = iso.decision_function(transformed_data)
+    return score,new_tags
+
+
 def plot_feat(sector):
     tags, data = next(get_sector_data(sector, 's',verbose=False))
+    
+    #file_path= f'Results\\{sector}.txt'
+    #tags = np.genfromtxt(file_path,delimiter = ',')[:,:4].astype('int32')
 
+    #tags = tags[:100,:]
 
     def TOI_color(data):
         ret = []
@@ -25,6 +124,35 @@ def plot_feat(sector):
                 ret.append('green')
         return np.array(ret)
 
+    def TOI_and_sign_color(data):
+        ret = []
+        import cluster_secondary
+        for i in range(len(data)):
+            longs,short,cons = 0,0,0
+            point = tags[i]
+            tag=tuple(point.astype('int32').tolist())
+            signature = cluster_secondary.func(tuple([sector,*tag]))
+            for i in range(len(signature)):
+                slice = signature[i]
+                if slice ==0:
+                    cons = 0
+                else:
+                    cons +=1
+                if cons == 1:
+                    short +=1
+                if cons == 3:
+                    longs +=1
+
+            short = (short - longs)
+            to_forward = longs<3 and longs>0 and short<2
+            if tag in TOI:
+                ret.append('red')
+            elif to_forward:
+                ret.append('blue')
+            else:
+                ret.append('green')
+        return np.array(ret)
+
     '''
     feat = np.array([amp,better_amp,med,mean,std,slope,r,skew,max_slope,\
     beyond1std, delta_quartiles, flux_mid_20, *flux_mid_35*, flux_mid_50, \
@@ -32,15 +160,9 @@ def plot_feat(sector):
     H1, R21, R31, Rcs, l , med_buffer_ran, perr,band_width, StetK, p_ander, day_of_i])
     '''
 
-    with concurrent.futures.ProcessPoolExecutor() as executer:
-        results = executer.map(func,tags)
-        data = []
-        for i,feat in enumerate(results):
-            if i%10 == 0:
-                print(i)
-            data.append(feat)
+    feat = get_feat(tags)
+    #feat,tags = get_iso_feat(sector,tags,data)
 
-    feat = data
     plt.ion()
 
     fig,ax = plt.subplots()
@@ -51,37 +173,42 @@ def plot_feat(sector):
         coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]))
         fig1,ax1 = plt.subplots()
         lc = lcobj.LC(sector,*coords)
-        #lc.remove_outliers()
+        lc.remove_outliers()
         ax1.scatter(lc.time,lc.flux,s=0.5)
         print(coords)
         ax1.scatter(lc.time,lc.smooth_flux,s=0.5)
 
-        granularity = 1.0           # In days
-        bins = granularity*np.arange(27)
+
+        granularity = 1.0/3           # In days
+        bins = granularity*np.arange(round(27/granularity))
+        #print(bins)
         bin_map = np.digitize(lc.time-lc.time[0], bins)
 
-        interesting_d = []
+        signature = []
         total_d = 0
         for bin in bins:#range(1,np.max(bin_map)+1):
-            dp_in_bin = np.ma.nonzero(bin_map == bin+1)
-            flux, time = lc.smooth_flux[dp_in_bin], lc.time[dp_in_bin]
+            dp_in_bin = np.ma.nonzero(bin_map == round(bin/granularity)+1)
+            flux, time = lc.flux[dp_in_bin], lc.time[dp_in_bin]
             _, ind = np.unique(time, return_index=True)
             flux, time = flux[ind], time[ind]
 
-            if flux.size in {0,1}:
-                pass
-
+            #print(bin,flux)
+            #input()
+            if flux.size == 0:
+                signature.append(0)
+                continue
             if np.mean(flux) > lc.std + lc.mean:
-                interesting_d.append(1000)
+                signature.append(1000)
             else:
-                interesting_d.append(0)
+                signature.append(0)
 
             total_d +=1
-        time = [ [t for t in lc.time if lc.time[0] + day <= t < lc.time[0]+day+1] for day in range(27)]
+        time = [ [t for t in lc.time if lc.time[0] + hr8*granularity <= t < lc.time[0]+(hr8+1)*granularity] for hr8 in range(round(27/granularity))]
         fit = []
-        for day in range(27):
-            i = interesting_d[day]
+        for day in range(round(27/granularity)):
+            i = signature[day]
             fit += [i for t in time[day]]
+
         ax1.scatter(lc.time, fit,s=0.5)
         ax1.scatter(lc.time, lc.N*[lc.mean+lc.std],s=0.5)
         
@@ -98,9 +225,15 @@ if __name__ == '__main__':
     base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\" # Forced value of base
     set_base(base)
 
-    sector = 37
+
+    # plot this only for main cluster
+    sector = 38
     TOI = TOI_list(sector)
     plot_feat(sector)
+
+    for toi in TOI:
+        LC(sector,*toi).remove_outliers().plot()
+        print(func(toi))
 
 
 

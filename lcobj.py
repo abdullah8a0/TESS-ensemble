@@ -37,6 +37,11 @@ class LCMissingDataError(Exception):
 
 class LC(object):
     def __init__(self, sector, cam, ccd, col, row):
+        mask = {
+            35: (2268.50, 2272.045),
+        }
+        
+
         try:
             assert 44 <= int(col) <= 2097
             assert 0 <= int(row) <= 2047 
@@ -44,9 +49,9 @@ class LC(object):
             raise LCOutOfBoundsError
 
         self.path = gen_path(sector,cam,ccd,col,row)
-        self.sector = sector
-        self.cam = cam
-        self.ccd = ccd
+        self.sector = int(sector)
+        self.cam = int(cam)
+        self.ccd = int(ccd)
         self.coords = (int(col),int(row))
         lc_data = np.genfromtxt(self.path)
 
@@ -70,19 +75,28 @@ class LC(object):
 
         if len(self.flux) < 10:
             raise LCMissingDataError("The flux file has less than 10 entries")
+        if sector in mask.keys():
+            masking_arr = np.logical_or(self.time < mask[sector][0],self.time > mask[sector][1])
+
+            self.flux   = self.flux[masking_arr]
+            self.time   = self.time[masking_arr]
+            self.error  = self.error[masking_arr]
+            self.bg     = self.bg[masking_arr]   
+
 
         self.N = len(self.flux)
         self.mean = np.mean(self.flux)
         self.std = np.std(self.flux)
 
         try:
-            assert self.N >60
+            assert self.N > 60
         except AssertionError:
             raise LCMissingDataError("The flux file has less than 60 entries")
 
         # Smoothing using SavGol Filter
-        try: 
-            self.smooth_flux = signal.savgol_filter(self.flux, min((1|int(0.05*self.N),61)), 3)
+        try:
+
+            self.smooth_flux = signal.savgol_filter(self.flux,min((1|int(0.05*self.N),61)), 3)
         except:
             raise LCMissingDataError
         self.linreg = stats.linregress(self.time,self.flux)[0:3]  #(slope,c,r)
@@ -92,6 +106,8 @@ class LC(object):
         self.is_percentiles = False  
 
         self.normed_flux = (self.flux - self.mean)/np.max(np.abs(self.flux-self.mean))
+        self.normed_time = self.time/np.max(self.time)
+        self.normed_smooth_flux = (self.smooth_flux - self.mean)/np.max(np.abs(self.smooth_flux-self.mean))
 
     def plot(self, flux = None, time = None, show_bg = True, show_err = False,show_smooth=False,scatter=[]):
         flux = self.flux if flux is None else flux
@@ -100,7 +116,7 @@ class LC(object):
         #fig = pylab.gcf()
         #fig.canvas.manager.set_window_title('Figure_'+str(self.coords[0])+'_'+str(self.coords[1]))
         plt.xlabel("Time (Days)")
-        plt.ylabel("True Flux")
+        plt.ylabel("Raw Flux")
         plt.scatter(time,flux,s=0.5)
         if show_bg:
             plt.scatter(time,self.bg,s=0.1)
@@ -118,10 +134,12 @@ class LC(object):
         return self
 
     def remove_outliers(self):
-        outlier_detector = IsolationForest(random_state=314,contamination=0.01)
-        forest = outlier_detector.fit_predict(self.normed_flux.reshape(-1,1))
+        outlier_detector = IsolationForest(n_estimators=200,max_samples=1000,random_state=np.random.RandomState(314),contamination=0.01)  # dynamic percentage?
+        forest = outlier_detector.fit_predict(list(zip(b:=self.normed_flux,a:=np.arange(0,1,1/len(self.normed_flux)))))
+        #forest = outlier_detector.fit_predict(self.normed_flux.reshape(-1,1))
         inliers = np.ma.nonzero(forest==1)[0]
         self.normed_flux = self.normed_flux[inliers]
+        self.normed_time = self.normed_time[inliers]
         self.flux        = self.flux[inliers]
         self.time        = self.time[inliers]
         self.error       = self.error[inliers]
@@ -131,7 +149,7 @@ class LC(object):
         self.std         = np.std(self.flux)
         self.median      = np.median(self.flux)
         try: 
-            self.smooth_flux = signal.savgol_filter(self.flux, min((1|int(0.05*self.N),61)), 3)
+            self.smooth_flux = signal.savgol_filter(self.flux,min((1|int(0.05*self.N),61)), 3)
         except:
             raise LCMissingDataError
 
@@ -139,15 +157,16 @@ class LC(object):
             raise LCMissingDataError
 
         return self
-
     def make_percentiles(self):
         self.percentiles = {i:np.percentile(self.flux,i) for i in range(0,101,1)}
         self.is_percentiles = True
 
-    def flat(self, smooth = False):
-        flux = self.smooth_flux if smooth else self.flux
-        m, c, _ = self.linreg
-        return flux - (m*self.time +c)
+    def flatten(self, smooth = None):
+        flux = self.smooth_flux if smooth is None else self.flux
+
+        fit = signal.savgol_filter(self.flux, 201 , 1)
+        self.flat =  flux - fit
+        return self
 
     def pad_flux(self):
         perday = 48 if self.sector <= 26 else 144
@@ -267,7 +286,7 @@ class TagFinder:
                 upper = mid - 1
             else:
                 return mid
-        raise Exception("Tag is not in the data")
+        raise Exception(f"Tag is not in the data : {tuple(tag)}")
 
     def lt(self,x,y):
         if (x==y).all():

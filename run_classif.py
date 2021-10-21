@@ -12,18 +12,17 @@ import cluster_vetter
 
 ### settings ### 'None' asks for values while running
 
-sector = 21         # 35 has a lot of reduction during cleanup
+sector = 38        # 35 has a lot of reduction during cleanup
 training_sector = None   # None makes "training sector = sector"
 base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\"
 model_persistence = False
-show_TOI = True
+show_TOI = False
 tsne_all_clusters = False
 tsne_results = False    #should remove
 tsne_individual_clusters = False
 vet_results = True      # implement
 verbose = True
-# the score function is messing up, even with most being accepted score is low???
-# see what tags are ya passing in, check if renamer worked? (plot_lc works so it should have also)
+
 
 ################
 
@@ -51,15 +50,13 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
             break
 
     cluster_anomaly.set_plot_flag(plot_tsne)
-    cluster_anomaly.set_sector(sector)
-    cluster_anomaly.cluster_and_plot(min_size=15,min_samp=2,dim=15, verbose=verbose, vet_clus = tsne_individual_clusters,model_persistence=model_persistence, training_sector=training_sector)
+    cluster_anomaly.set_sector(sector)#       5n          5n+3
+    cluster_anomaly.cluster_and_plot(min_size=15,min_samp=3,dim=15, verbose=verbose, vet_clus = tsne_individual_clusters,model_persistence=model_persistence, training_sector=training_sector)
     RTS_clusters = None
     HTP_clusters = None 
-    if tsne_individual_clusters:
+    if tsne_individual_clusters:# para search after clean up
         RTS_clusters = input("Which cluster labels correspond to RTS? ").split()
         HTP_clusters = input("Which cluster labels correspond to hot pixels? ").split()
-
-
     effect_detection.find_effects(sector, RTS_clusters,HTP_clusters)
     
     cleanup_anomaly.set_sector(sector)
@@ -71,15 +68,40 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
     raw_data = np.genfromtxt(f'Results\\{sector}.txt', delimiter= ',')
     result_tags, sub_feat = raw_data[:,:4].astype('int32'), raw_data[:,-30:]
     transformed_data = cluster_anomaly.scale_simplify(sub_feat,False,15)
-    if tsne_results:
+    #if tsne_results:
         #cluster_anomaly.tsne_plot(result_tags,transformed_data,np.array([5]*len(result_tags)))
-        cluster_anomaly.cluster_and_plot(sub_tags=result_tags, verbose=True,sub_feat=sub_feat,show_TOI=show_TOI, dim=15,min_size=7,min_samp=4,write=False,vet_clus=False)
+    #    cluster_anomaly.cluster_and_plot(sub_tags=result_tags, verbose=True,sub_feat=sub_feat,show_TOI=show_TOI, dim=15,min_size=7,min_samp=4,write=False,vet_clus=False)
 
     if vet_results:
 
         # DEANOMALIZATION HERE
         from hdbscan.prediction import all_points_membership_vectors
-        clusterer,labels = cluster_anomaly.hdbscan_cluster(transformed_data,verbose,None,5,2,'euclidean')  #10,2
+
+        size_base, samp_base = 5,3
+
+        br = False
+        while not br:
+            for size,samp in [(i,j) for i in range(size_base-3,size_base+3) for j in range(samp_base-3,samp_base+3) if i > 0 and j>0]:
+                clusterer,labels = cluster_anomaly.hdbscan_cluster(transformed_data,verbose,training_sector,size,samp,'euclidean')
+
+                labels_all = np.argmax(all_points_membership_vectors(clusterer),axis=1)
+                #if np.max(labels_all)<5:
+                print(f'{size}, {samp}\t: {np.max(labels_all)}')
+                
+                #    continue
+                #else:
+                #    br = True
+                #    break
+            if not br:
+                lis =  [int(i) for i in input('None Found. Enter new center: ').split(' ')]
+                size_base, samp_base = lis[0],lis[1]
+                if len(lis) == 3:
+                    size,samp = size_base,samp_base
+                    br = True    
+        print(f'{size}, {samp}')
+
+
+        clusterer,labels = cluster_anomaly.hdbscan_cluster(transformed_data,verbose,None,size,samp,'euclidean')  #10,2
         labels_all = np.argmax(all_points_membership_vectors(clusterer),axis=1)
         cluster_anomaly.umap_plot(result_tags,transformed_data,labels_all,normalized=False)     #clusterer.labels_
         num_clus =  np.max(labels_all)

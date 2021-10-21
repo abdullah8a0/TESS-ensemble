@@ -27,12 +27,12 @@ def extract_vector_feat_from_tag(tag):
 
     granularity = 1.0           # In days
     bins = granularity*np.arange(27)
-    bin_map = np.digitize(lc.time-lc.time[0], bins)
+    bin_map = np.digitize(lc.normed_time-lc.normed_time[0], bins)
 
     feat = []
     for bin in bins:# range(1,np.max(bin_map)+1):
         dp_in_bin = np.ma.nonzero(bin_map == bin+1)
-        flux, time = lc.normed_flux[dp_in_bin], lc.time[dp_in_bin]
+        flux, time = lc.normed_flux[dp_in_bin], lc.normed_time[dp_in_bin]
         _, ind = np.unique(time, return_index=True)
         flux, time = flux[ind], time[ind]
 

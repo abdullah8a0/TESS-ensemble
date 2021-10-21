@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.ma.core import flatten_structured_array
 import statsmodels.tsa.stattools as stattools
 import concurrent.futures
 from scipy import stats
@@ -95,6 +96,12 @@ def extract_scaler_feat_from_tag(tag):
     step_fin = lc.smooth_flux[-1]
     center = np.argmax(np.abs(lc.smooth_flux[1:] - lc.smooth_flux[:-1]))
 
+    half_1 = np.arange(0,center)
+    half_2 = np.arange(center,len(lc.smooth_flux))
+
+    #m1,_,r1 = stats.linregress(lc.normed_time[half_1],lc.normed_smooth_flux[half_1])[:3]
+    #m2,_,r2 = stats.linregress(lc.normed_time[half_2],lc.normed_smooth_flux[half_2])[:3]
+
     k = len(lc.smooth_flux)
     center = center if k> center else k
     center = center if center > 0 else 0
@@ -107,6 +114,8 @@ def extract_scaler_feat_from_tag(tag):
     fit = np.concatenate((np.array([step_init]*center), np.array([step_fin]*(k-center))))
     
     perr = r2_score(lc.smooth_flux,fit)
+
+    #perr = abs(m1-m2) + abs(r1-r2)
     
     # Neumann's Variability Index (for unevenly spaced data)
 
@@ -232,6 +241,9 @@ def extract_scaler_feat_from_tag(tag):
         _, ind = np.unique(time, return_index=True)
         flux, time = flux[ind], time[ind]
 
+        if flux.size == 0:
+            interesting_d.append(0)
+            continue
 
         if np.mean(flux) > std + mean:
             interesting_d.append(1)
@@ -292,10 +304,8 @@ def extract_scaler_features(sector):
 
                     
 if __name__ == '__main__':
-    extract_scaler_features(21)
-    exit()
-    extract_scaler_features(37)
-    extract_scaler_features(32)
+    #extract_scaler_features(37)
+    #extract_scaler_features(32)
     extract_scaler_features(33)
     extract_scaler_features(34)
     extract_scaler_features(35)

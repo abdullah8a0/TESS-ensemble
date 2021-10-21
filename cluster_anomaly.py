@@ -1,11 +1,14 @@
+import cluster_secondary 
 from TOI_gen import TOI_list
 import umap
+import hdbscan
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from scipy import stats
 import lcobj
 import numpy as np
 from pickle import dump,load
+from sklearn.ensemble import IsolationForest
 import matplotlib.pyplot as plt
 
 sector = 32
@@ -21,7 +24,7 @@ def set_plot_flag(bool):
 
 
 
-def score(tags,sec):
+def score(tags,sec,verbose=True):
     if tags is None:
         tags = (np.genfromtxt(f'Results\\{sec}.txt',delimiter=',')[:,:4]).astype('int32')
 
@@ -38,7 +41,7 @@ def score(tags,sec):
             count +=1
             seen.append(must_detects.index(t))
     temp = np.delete(temp,seen,0)
-    if temp.size != 0:
+    if temp.size != 0 and verbose:
         for k in temp:
             print("Must detect: ",k)
             #lcobj.LC(sec,*k).plot()
@@ -75,10 +78,7 @@ def hdbscan_cluster(transformed_data,verbose,training_sector, min_size,min_samp,
 
     #Clustering start
 
-    import hdbscan
 
-    if verbose:
-        print("---Dimesionality Reduced. Starting Cluster using HDBSCAN---")
 
     if training_sector is None:
         clusterer = hdbscan.HDBSCAN(min_cluster_size=min_size,cluster_selection_epsilon=epsilon ,min_samples=min_samp,metric=metric,prediction_data=True,cluster_selection_method=type)       # BEST is 15,12 cluster size, 19 previous, 7 prev, 8 WORKS
@@ -90,7 +90,7 @@ def hdbscan_cluster(transformed_data,verbose,training_sector, min_size,min_samp,
         return clusterer,hdbscan.approximate_predict(clusterer,transformed_data)[0]
 
 
-def umap_plot(tags,transformed_data,labels,TOI=None,normalized=True):
+def umap_plot(tags,transformed_data,labels,TOI=None,normalized=True,with_sec=False):
     tags_find = lcobj.TagFinder(tags)
     TOI_ind = []
     TOI = TOI if TOI is not None else []
@@ -113,13 +113,20 @@ def umap_plot(tags,transformed_data,labels,TOI=None,normalized=True):
     def onpick(event):
         ind = event.ind
         ccd_point = tags[ind][0]
-        coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]))
         fig1,ax1 = plt.subplots()
 
-        print((sector ,*coords))
-        lc = lcobj.LC(sector,*coords)
-        sec = sector
-    
+        if not with_sec:
+            coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]))
+            print((sector ,*coords))
+            lc = lcobj.LC(sector,*coords)
+        else:
+            coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]),int(ccd_point[4]))
+            print(coords)
+            lc = lcobj.LC(*coords)
+        
+
+
+
         granularity = 1.0           # In days
         bins = granularity*np.arange(27)
         bin_map = np.digitize(lc.time-lc.time[0], bins)
@@ -221,41 +228,100 @@ def cluster_and_plot(sub_tags=None,sub_feat=None,show_TOI=True,dim =15, min_size
 
     data_gen = lcobj.get_sector_data(sector,'s',verbose=False)
     tags, data = next(data_gen)
+    tag_finder = lcobj.TagFinder(tags)
     if sub_tags is not None:
         global plot_flag
         plot_flag=True
         tags, data = sub_tags, sub_feat
 
     transformed_data = scale_simplify(data,verbose,dim)
+    if verbose:
+        print("---Dimesionality Reduced. Starting Cluster using HDBSCAN---")
+    size_base,samp_base = min_size,min_samp
 
-    clusterer,new_labels = hdbscan_cluster(transformed_data,verbose,training_sector,min_size,min_samp,metric,type=type)
+    
+    br = False
+    size,samp = 12,3
+    
+    while not br:
+        for size,samp in [(i,j) for i in range(size_base-3,size_base+3) for j in range(samp_base-3,samp_base+3) if i > 0 and j>0]:
+            clusterer,new_labels = hdbscan_cluster(transformed_data,verbose,training_sector,size,samp,metric,type=type)
+
+
+            ## ONLY FOR SCORING
+            labels = new_labels
+            num_clus =  np.max(new_labels)
+            clus_count = [np.count_nonzero(new_labels == i) for i in range(-1,1+num_clus)]
+            if len(clus_count) == 1:
+                print(f'{size}, {samp}\t: No Clustering\n')
+                continue
+            ind = np.argpartition(np.array(clus_count), -2)[-2:]
+            for i in ind:
+                if i==0:
+                    continue
+                #if verbose:
+                    #print('detailing: ',i)
+                clusters = [np.ma.nonzero(new_labels == i)[0] for i in range(-1,1+num_clus)]
+
+                anomalies = [clusters[0]]
+                cluster = clusters[i]
+
+                predictor = IsolationForest(random_state=314,contamination=0.1)
+                forest = predictor.fit_predict(transformed_data[cluster])
+                anomalies.append(cluster[np.ma.nonzero(forest==-1)])
+            
+            reduction = 1-sum(len(i) for i in anomalies)/tags.shape[0]
+            a,b ='*','.'
+            print(f'{size}, {samp}\t: {score(np.array([tags[i,:] for x in anomalies for i in x]),sector,verbose=False)}/{len(TOI)}\t\t{a if 0.65>reduction>0.5 else b}\t{reduction}\n\t  {clus_count}')
+
+        if not br:
+            lis =  [int(i) for i in input('Enter new center or choose from above: ').split(' ')]
+            size_base, samp_base = lis[0],lis[1]
+            if len(lis) == 3:
+                size,samp = size_base,samp_base
+                br = True    
+
+    sel_size,sel_samp = size,samp
+
+    clusterer,new_labels = hdbscan_cluster(transformed_data,verbose,training_sector,int(sel_size),int(sel_samp),metric,type=type)
+
+    labels = new_labels
+    if plot_flag:
+            
+        if verbose:
+            print("---Clustering done. Visualising using t-SNE---")
+        #TNSE START
+        import time
+        start = time.time()
+        #umap_plot(tags,transformed_data,labels,TOI=TOI)
+        mid = time.time()
+        tsne_plot(tags,transformed_data,labels,TOI=TOI)
+        end = time.time()
+        #print(f'UMAP: {mid-start}s      TSNE: {end-mid}s')
+
+    num_clus =  np.max(new_labels)
+
+    clus_count = [np.count_nonzero(new_labels == i) for i in range(-1,1+num_clus)]
+    
+
+
+    if verbose:
+        print("Number of cluster:",num_clus+1)
+        print(clus_count)
 
     if model_persistence:
         with open(f"Pickled\\{sector}.p",'wb') as file:
             dump(clusterer,file)
 
 
-
-
-    labels = new_labels
-    num_clus =  np.max(new_labels)
-
-    clus_count = [np.count_nonzero(new_labels == i) for i in range(-1,1+num_clus)]
-    
-    if verbose:
-        print("Number of cluster:",num_clus+1)
-        print(clus_count)
-
-    ind = np.argpartition(np.array(clus_count), -2)[-2:]
-
-
     clusters = [np.ma.nonzero(new_labels == i)[0] for i in range(-1,1+num_clus)]
 
-    from sklearn.ensemble import IsolationForest
     anomalies = [clusters[0]]
     
     #ind = [i for i in range(len(clusters))]
+    ind = np.argpartition(np.array(clus_count), -2)[-2:]
     for i in ind:
+        continue
         if i==0:
             continue
         if verbose:
@@ -266,7 +332,21 @@ def cluster_and_plot(sub_tags=None,sub_feat=None,show_TOI=True,dim =15, min_size
         forest = predictor.fit_predict(transformed_data[cluster])
         anomalies.append(cluster[np.ma.nonzero(forest==-1)])
 
+    ### FORWARD BYPASS
+    main_blob = tags[(main_blob_ind:=clusters[clus_count.index(max(clus_count))])]
+    forwards = cluster_secondary.forwarding(sector,main_blob)
+    forwards_ind = np.array([tag_finder.find(tag) for tag in forwards])
+    forwards_data = transformed_data[forwards_ind]
 
+    forest = IsolationForest(random_state=314,contamination=0.1,n_jobs=-1)
+    forest.fit(transformed_data[main_blob_ind])
+    score_ = forest.decision_function(forwards_data)
+    #print(score_)
+    good_to_forward_ind = np.argpartition(-score_, -len(score_)//10)[-len(score_)//10:]
+    #print(good_to_forward_ind)
+
+    anomalies.append(forwards_ind[good_to_forward_ind])
+    ###
     name_ = str(sector)
     if write:
         np.savetxt(f'Results/{name_}.txt',tags[np.array([i for x in anomalies for i in x]).astype('int32')], fmt='%1d')
@@ -298,19 +378,6 @@ def cluster_and_plot(sub_tags=None,sub_feat=None,show_TOI=True,dim =15, min_size
 
 
     print(f'Data reduction: {round(100-100*sum(len(x) for x in anomalies)/(len(tags)),1)}%\t Score: {must_detect}/{len(TOI_list(sector))}')
-
-    if plot_flag:
-            
-        if verbose:
-            print("---Clustering done. Visualising using t-SNE---")
-        #TNSE START
-        import time
-        start = time.time()
-        umap_plot(tags,transformed_data,labels,TOI=TOI)
-        mid = time.time()
-        #tsne_plot(tags,transformed_data,labels,TOI=None)
-        end = time.time()
-        #print(f'UMAP: {mid-start}s      TSNE: {end-mid}s')
 
 
     if vet_clus:

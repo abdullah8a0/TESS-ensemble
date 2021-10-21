@@ -10,14 +10,14 @@ import numpy as np
 
 
 def sec_isdirty(feat_s):
-    if feat_s[-7] > 0.45 and feat_s[-6]>100:
-        print('1')
+    if feat_s[-7] > 0.45 and feat_s[-6]>1000:
+        #print('1')
         return True
     if feat_s[9] < 0.025:
-        print('2')
+        #print('2')
         return True
     if feat_s[0]<5000:
-        print('3')
+        #print('3')
         return True 
     
     return False#find score at the end
@@ -25,9 +25,12 @@ def sec_isdirty(feat_s):
 def is_chatter(tag):
     lc = lcobj.LC(*tag).remove_outliers()
     delta = lc.flux -lc.smooth_flux
-    ret = stats.anderson(delta)[0]>5
-    if ret: 
-        print('5')
+    ret = (i:=stats.anderson(delta)[0])>5
+    #if ret: 
+        #print('5')
+        #print(f'stat: {i}')
+    #plt.hist(delta,bins='auto')
+    #plt.show()
     return ret
 
 
@@ -105,8 +108,8 @@ def w_metric(vec1,vec2):
 
 def vec_isdirty(feat_s):
     t =  w_metric(positive_scatter_candid,feat_s) <1 or w_metric(negative_scatter_candids[0],feat_s)<0.47 or w_metric(negative_scatter_candids[1],feat_s)<0.55
-    if t: 
-        print('4')
+    #if t: 
+    #    print('4')
     return t
 
 def isdirty(features,features_v,tag):
@@ -177,14 +180,18 @@ def cleanup(verbose=False):
     np.savetxt(f'Results\\{sectors[0]}.txt', new_anom[:,1:], fmt='%1.5e', delimiter=',')
 
 if __name__ == "__main__":
-    tags,feats = next(lcobj.get_sector_data(sec:=37,'s',verbose=False))
+    tags,feats = next(lcobj.get_sector_data(sec:=38,'s',verbose=False))
     tags_v,feat_v =next(lcobj.get_sector_data(sec, 'v',verbose=False))
     binsearch_tags = lcobj.TagFinder(tags)
     binsearch_tags_v = lcobj.TagFinder(tags_v)
-    tag = (4,1,101,1641)
+    #tag = (4,1,101,1641)
     for tag in TOI_list(sec):
         #lcobj.LC(37,*tag).smooth_plot()
-        #lcobj.LC(37,*tag).remove_outliers().plot()
+        #lcobj.LC(37,*tag)
         ind = binsearch_tags.find(tag)
         ind_v = binsearch_tags_v.find(tag)
-        print(tags[ind],func((feats[ind],feat_v[ind_v],(sec,*tag)))[0])
+        print(tags[ind],res:=func((feats[ind],feat_v[ind_v],(sec,*tag)))[0])
+        #if res:
+        lc = lcobj.LC(sec,*tag)
+        lc.remove_outliers().plot(show_smooth=True, show_bg=False,)#scatter=[(lc.time_unclipped,lc.flux_unclipped)])
+        #lc.flatten().plot(flux=lc.flat,show_bg=False)

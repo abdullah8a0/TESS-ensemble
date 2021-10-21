@@ -3,12 +3,13 @@ from cleanup_anomaly import isdirty
 from TOI_gen import TOI_list
 from cluster_anomaly import hdbscan_cluster
 import os
+import math
 from scipy import signal, stats
-
+from sklearn.mixture import GaussianMixture
 from numpy.random import shuffle
 import lcobj
 import numpy as np
-from lcobj import get_coords_from_path
+from lcobj import LC, get_coords_from_path
 base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\" # Forced value of base
 
 
@@ -48,7 +49,7 @@ def plotter():
 #34 [   1    2 2028 1026]
 #34 [   1    2 2011 1311]
 #34 [   1    2 2000 1003]
-    sector, cam, ccd = 35,2, 1
+    sector, cam, ccd = 32,4, 4
 
     path = lcobj.gen_path(sector,cam,ccd,0,0)[:-6]
     if choice == '0':
@@ -58,20 +59,19 @@ def plotter():
                 if not entry.name.startswith('.') and entry.is_file():
                     file_name = str(entry.name)
                     col, row = get_coords_from_path(file_name)
-                    print(col,row)
-                    try:
-                        lc = lcobj.LC(sector, cam, ccd, col, row)
-                    except:
-                        continue
-                    lc.plot()
-                    lc.pad_flux()
-                    lc.make_FFT()
-                    print(1/lc.significant_fequencies[0][0], lc.significant_fequencies[0][1])
-                    lc.plot_phase()
-                    if user_in != '0':
-                        user_in = input("Press Enter to continue, type 0 to plot all: ")
-                        if user_in == '1':
-                            break
+                    print((sector,cam,ccd, col,row))
+                    tag = (sector,cam,ccd,col,row)
+                    lc = lcobj.LC(*tag).plot() 
+                    #lc_opt = lcobj.LC(*tag).remove_outliers()#.plot(show_smooth=True,show_bg=False)
+                    #lc.plot(show_bg=False,scatter=[(lc_opt.time,lc_opt.flux)])
+                    #lc = lcobj.LC(sector, cam, ccd, col, row).remove_outliers()
+                    
+                    
+                    #delta = lc.flux -lc.smooth_flux
+                    #plt.hist(delta,bins=30)
+                    #print(stats.anderson(delta))
+                    #plt.show()
+
     elif choice == '1':
         name = None
         while True:
@@ -118,10 +118,9 @@ def plotter():
             #lc.smooth_flux = signal.savgol_filter(lc.flux, 301, 2)
             peaks = signal.find_peaks(lc.smooth_flux,prominence=6,distance=50)[0]
             lc.plot(show_smooth=True,show_bg=False)
-            hist = np.histogram(lc.flux-lc.smooth_flux)
-            plt.hist(f:=(lc.flux-lc.smooth_flux),bins='auto')
+            #plt.hist(f:=(lc.flux-lc.smooth_flux),bins='auto')
             plt.show()
-            print(stats.anderson(f))
+            #print(stats.anderson(f))
             #print(len(peaks))
                 #(2, 2, 1184, 1908)
     elif choice == '3':
@@ -169,45 +168,117 @@ def plotter():
                 #32 [   1    3 1860  806]
 if __name__ == '__main__':
     plotter()
+    #for tag in TOI_list(32):
+    #    LC(32,*tag).remove_outliers().plot()
+    #    print(tag)
     exit()
-#Must detect:  [  1   2 934 861]
-#Must detect:  [   1    4 2036 1776]
-#Must detect:  [   2    3 1312 1886]
-#Must detect:  [   3    1 1565 1157]
-#Must detect:  [   4    1  101 1641]
-    from scipy.signal import find_peaks
-    sec = 37
+    lcobj.LC(*(32,3, 1, 1584, 1125)).plot()
 
-    lc = lcobj.LC(37,1,2,934,861).remove_outliers().plot(show_smooth=True,show_bg=False)
-    lc.smooth_flux = signal.savgol_filter(lc.flux, 301, 2)
+# PResentation
+    #LC(36, 4, 1, '1229', '1280').plot(show_smooth=True,show_bg=False) #chatter
+# (36, 4, 1, '138', '461') ^
+# (36, 4, 1, '1299', '1530') noisy
+
+#normal case
+    #LC(37, 1, 4, 1743, 1123).plot()
+# (37, 1, 1, 254, 88)
+# (37, 1, 4, 125, 116)
+# (37, 1, 2, 709, 1955)
+# (37, 2, 4, 160, 74)
+
+# blue clus
+#(37, 4, 4, 195, 214)
+#[0]
+#(37, 4, 4, 158, 107)
+#[0 0 0 0]
+
+#    exit()
+    missed = [
+        [   1,    1,  644, 1640],
+        [   1,    3,  112, 1796],
+        [   1,    4, 1125,  135],
+        [   2,    1, 1156, 1336],
+        [   3,    3, 1171,  881],
+        [   3,    3,  133, 1392],
+        [   3,    4,  706, 1062],
+        [  4 ,  1, 377, 184],
+        [   4,    1, 1922,  968],
+    ]
+    missed = TOI_list(37)
+    for tag in missed:
+        #tag = (37, 1, 4, 1667, 272)
+        print(tag)
+        lc = lcobj.LC(37,*tag).remove_outliers().plot(show_bg=False)
+        continue
+
+        fig1,ax1 = plt.subplots()
+        ax1.scatter(lc.time,lc.flux,s=0.5)
+        #ax1.scatter(lc.time,lc.smooth_flux,s=0.5)
+
+        granularity = 1.0/3           # In days
+        bins = granularity*np.arange(round(27/granularity))
+        #print(bins)
+        bin_map = np.digitize(lc.time-lc.time[0], bins)
+
+        interesting_d = []
+        total_d = 0
+        for bin in bins:#range(1,np.max(bin_map)+1):
+            dp_in_bin = np.ma.nonzero(bin_map == round(bin/granularity)+1)
+            flux, time = lc.flux[dp_in_bin], lc.time[dp_in_bin]
+            _, ind = np.unique(time, return_index=True)
+            flux, time = flux[ind], time[ind]
+
+            #print(bin,flux)
+            #input()
+            if flux.size == 0:
+                interesting_d.append(0)
+                continue
+            if np.mean(flux) > lc.std + lc.mean:
+                interesting_d.append(1000)
+            else:
+                interesting_d.append(0)
+
+            total_d +=1
+        time = [ [t for t in lc.time if lc.time[0] + hr8*granularity <= t < lc.time[0]+(hr8+1)*granularity] for hr8 in range(round(27/granularity))]
+        fit = []
+        #print(interesting_d)
+        #print(time[1],len(time[1]))
+        #input()
+        for day in range(round(27/granularity)):
+            i = interesting_d[day]
+            fit += [i for t in time[day]]
+        #ax1.scatter(lc.time, fit,s=0.5)
+        #ax1.scatter(lc.time, lc.N*[lc.mean+lc.std],s=0.5)
+        plt.show()
+
+
+
+    exit()
+    sec = 35
+    tag = (35, 4, 1, 1922, 968)    
+    tag = (37,   1,    2, 1012,  389)
+    tag = (37,1,1,1101,88)
+    tag = (36, 4, 1, '1229', '1280')
+
+    tag=  (36, 4, 1, '138', '461')
+    tag = (32,3, 4, 805, 1076)
+    lc = lcobj.LC(*tag).plot(show_bg=False).remove_outliers()
+    lc_opt = lcobj.LC(*tag).remove_outliers()#.plot(show_smooth=True,show_bg=False)
+    lc.plot(show_bg=False)
     
-    print(len(peaks:=find_peaks(lc.smooth_flux,prominence=6,distance=50)[0]))
-    lc.plot(show_smooth=True,show_bg=False,scatter=[(lc.time[peaks],lc.smooth_flux[peaks])])
+    lc.plot(show_smooth=True,show_bg=False)
+    lc.flatten().plot(flux=lc.flat)
+    plt.hist(f:=(lc.flux-lc.smooth_flux),bins='auto')
+    plt.show()
+    print(stats.anderson(f))
+    #print(len(peaks:=find_peaks(lc.smooth_flux,prominence=6,distance=50)[0]))
+    #lc.plot(show_smooth=True,show_bg=False,scatter=[(lc.time[peaks],lc.smooth_flux[peaks])])
     exit()
 
 
     for tag in TOI_list(sec):
         print(tag)
         lcobj.LC(sec,*tag).plot().remove_outliers().plot()
-
-
-    #from cluster_anomaly import tsne_plot,scale_simplify
-
-    #raw_data = np.genfromtxt('Results\\32.txt',delimiter=',')
-    #tags,data = raw_data[:,:4],raw_data[:,-30:]
-    #transformed_data = scale_simplify(data,True,15)   
-    #clusterer = hdbscan_cluster(transformed_data,True,None,5,1,'euclidean')
-    #tsne_plot(tags,transformed_data,clusterer.labels_,normalized=False) (35, 1, 3, 123, 721)
-
-    exit()
-
-    lc = lcobj.LC(32,3,2,900,594)
-    lc.remove_outliers()
-    lc.plot(show_bg=False)
-
-    lc = lcobj.LC(35,1,2,1796,1368).plot()
-    lc.remove_outliers()
-    lc.plot(show_bg=False)
 
 
 

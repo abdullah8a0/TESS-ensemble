@@ -16,22 +16,55 @@ def w_metric(vec1,vec2):
     m2 = np.arctan(m2)
     return sum(np.sqrt(np.abs(r1-r2)*(m1-m2)**2))
 
+def sim_score(sig1, sig2):
+    return max(sum(sig1),sum(sig2)) -  np.max(np.convolve(sig1,sig2))
+
 
 
 def func(tag):
     lc = lcobj.LC(*tag).remove_outliers()
-    delta = lc.flux -lc.smooth_flux
-    return stats.anderson(delta)[0]
+
+    granularity = 1.0/3           # In days
+    bins = granularity*np.arange(round(27/granularity))
+    #print(bins)
+    bin_map = np.digitize(lc.time-lc.time[0], bins)
+
+    signature = []
+    total_d = 0
+    for bin in bins:#range(1,np.max(bin_map)+1):
+        dp_in_bin = np.ma.nonzero(bin_map == round(bin/granularity)+1)
+        flux, time = lc.flux[dp_in_bin], lc.time[dp_in_bin]
+        _, ind = np.unique(time, return_index=True)
+        flux, time = flux[ind], time[ind]
+
+        #print(bin,flux)
+        #input()
+        if flux.size == 0:
+            signature.append(0)
+            continue
+        if np.mean(flux) > lc.std + lc.mean:
+            signature.append(1)
+        else:
+            signature.append(0)
+
+        total_d +=1
+    #time = [ [t for t in lc.time if lc.time[0] + hr8*granularity <= t < lc.time[0]+(hr8+1)*granularity] for hr8 in range(round(27/granularity))]
+    #fit = []
+    #for day in range(round(27/granularity)):
+    #    i = interesting_d[day]
+    #    fit += [i for t in time[day]]
 
 
-def cluster_secondary(sector,verbose=False):
+    return signature
+
+
+
+def cluster_secondary_run(sector,verbose=False):
     raw_data = np.genfromtxt(f'Results\\{sector}.txt',delimiter =',')
-    tags ,feat_v, feat_s = raw_data[:,:4].astype('int32'),raw_data[:,4:-30],raw_data[:,-30:]
-    feat_s = np.delete(feat_s,[],1)
+    tags,feat_s = raw_data[:,:4].astype('int32'),raw_data[:,30:]
+    #tags,feat_s = next(lcobj.get_sector_data(sector,'s',verbose=verbose))
+    #feat_s = np.delete(feat_s,[],1)
     tags = np.concatenate((sector*np.ones(len(tags)).reshape(len(tags),1),tags),axis=1).astype('int32')
-
-    #remove feat_s
-
 
     with concurrent.futures.ProcessPoolExecutor() as executer:
         results = executer.map(func,tags)
@@ -40,28 +73,49 @@ def cluster_secondary(sector,verbose=False):
             if i%10 == 0:
                 print(i)
             data.append(feat)
-    feat_s = np.concatenate((feat_s,np.array(data).reshape(len(data),1)),axis=1)
-    feat_s = feat_s[:,(-1,-3)]
 
-    #feat_v = feat_v[:,::2]# removing r**2
-
-    #cluster_anomaly.cluster_and_plot(sub_tags= tags,sub_feat=feat_v,dim=54 \
-    #    ,min_size=5,min_samp=1,write=False,verbose=True,metric=w_metric,type='eom')   # 35 for feat_v
-
-
-    #implement distance net
-
+    feat_s = np.array(data)
 
     transformed_data = cluster_anomaly.scale_simplify(feat_s,verbose,feat_s.shape[1])
-    #dist = np.array([[w_metric(vec1,vec2) for vec2 in transformed_data] for vec1 in transformed_data])
-    clusterer,labels = cluster_anomaly.hdbscan_cluster(transformed_data,verbose,None,5,5,'euclidean')
+    metric = 'euclidean'#'precomputed'
+    clusterer,labels = cluster_anomaly.hdbscan_cluster(transformed_data,verbose,None,5,5,metric)
     cluster_anomaly.tsne_plot(tags,transformed_data,labels,with_sec=True)
-#    for i in range(2,100):
-#        clusterer = sklearn.cluster.DBSCAN(eps=i,metric='precomputed').fit(dist)
-#        labels = clusterer.labels_
 
-#        cluster_anomaly.tsne_plot(tags,transformed_data,labels)
 
+def forwarding(sector,tags,verbose=False):
+    tags_without_sector = tags
+    tagsfinder = lcobj.TagFinder(tags)
+
+    tags = np.concatenate((sector*np.ones(len(tags)).reshape(len(tags),1),tags),axis=1).astype('int32')
+
+    with concurrent.futures.ProcessPoolExecutor() as executer:
+        results = executer.map(func,tags)
+        data = []
+        for i,feat in enumerate(results):
+            if i%10 == 0:
+                print(i)
+            data.append(feat)
+
+    data = np.array(data)
+    longs = np.zeros(data.shape[0]).reshape(-1,1)
+    short = np.zeros(data.shape[0]).reshape(-1,1)
+    cons = np.zeros(data.shape[0]).reshape(-1,1)
+    for i in range(data.shape[1]):
+        slice = data[:,i].reshape(-1,1)
+        #print(f'{longs} + {slice} = {longs + slice}')
+
+        cons = np.where(slice==0,slice,cons+slice)
+        short = np.where(cons==1,short + cons,short)
+        longs = np.where(cons==3,longs+slice,longs)
+
+    #print(longs)
+    #print(short)
+    short = (short - longs).reshape(1,-1)[0]
+    longs = longs.reshape(1,-1)[0]
+
+    to_forward = np.logical_and(np.logical_and(longs<3,longs>0),short<2)
+    #include iso forest 
+    return [tags_without_sector[forwarded_ind] for forwarded_ind in np.ma.nonzero(to_forward)[0]]
 
 
 
@@ -71,6 +125,6 @@ def cluster_secondary(sector,verbose=False):
 
 
 if __name__ == '__main__':
-    sector =37
-    cluster_secondary(sector,verbose=True)
+    sector = 37
+    cluster_secondary_run(sector,verbose=True)
 
