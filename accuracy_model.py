@@ -34,9 +34,9 @@ class Data:
         self.transientfind = TagFinder(transient_tags)
         self.default_type = default
         self.ind = insert
-        ###
+        #########################################
         # Get transient data here
-        ###
+        #########################################
         self.scalartran = np.array([])
         self.vectortran = np.array([])
         self.signattran = np.array([])
@@ -108,8 +108,6 @@ class Data:
     def get_some(self,tags,type=None):
         if type is None:
             type = self.default_type
-        #mask = tags[:,0]==5
-        #trantags, secttags = tags[mask,:], tags[~mask,:]
         try:
             return np.array([self.get(tag,type=type) for tag in tags])
         except TagNotFound:
