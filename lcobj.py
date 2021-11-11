@@ -20,12 +20,15 @@ def gen_path(sector,cam,ccd,col,row):
     file_name = 'lc_'+str(col)+'.'+str(row)
     cam,ccd,col,row = str(cam),str(ccd),str(col),str(row)
 
-    #ccd_path_raw = ["s","_transient_lc/sector","/cam","_ccd","/lc_transient_pipeline/"]
+    if int(cam) == -1:
+        return Path(f'/Users/abdullah/Desktop/UROP/Tess/local_code/py_code/transient_data/transient_lc/lc_{col}.{row}')
+        
+
     ccd_path_raw = ["sector","/cam","_ccd","/lc_transient_pipeline/"]
     sector2 = str(sector) if int(sector) > 9 else '0'+str(sector)
-    #ccd_path = ccd_path_raw[0]+sector2+ccd_path_raw[1]+sector2+ccd_path_raw[2]+str(cam)+ccd_path_raw[3]+str(ccd)+ccd_path_raw[4]
 
     ccd_path = Path(ccd_path_raw[0]+sector2 + ccd_path_raw[1]+cam+ccd_path_raw[2]+ccd+ccd_path_raw[3])
+
     try:
         file_path = base / ccd_path / file_name
     except NameError:
@@ -310,5 +313,6 @@ def get_coords_from_path(file_path):
     y = file_path[d+1:]
     return (x,y)
 if __name__ == '__main__':
+    LC(32,-1,-1,68,690).plot()
     pass
     #set_base("C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\")                 # Change this to the folder where your sxx_transient_lcs is located

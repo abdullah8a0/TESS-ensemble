@@ -1,10 +1,20 @@
 import numpy as np
-from lcobj import TagFinder, TagNotFound
-import lcobj
+from lcobj import TagFinder, TagNotFound, get_coords_from_path
+import os
 from pathlib import Path
+import random
 
-transient_tags = []
-generated_transients = {}
+path = Path('/Users/abdullah/Desktop/UROP/Tess/local_code/py_code/transient_data/')
+transient_tags = [] 
+with os.scandir(path) as entries:
+    for i,entry in enumerate(entries):
+        if not entry.name.startswith('.') and entry.is_file():
+            if entry.name[:3] != 'lc_':
+                continue
+            tag = (-1,-1,*get_coords_from_path(entry.name))
+            transient_tags.append(tag)
+
+#generated_transients = {}
 # Remove transients from Renamer insertions.
 
 def get_sector_data(sectors,t,verbose=True):
@@ -19,7 +29,7 @@ def get_sector_data(sectors,t,verbose=True):
         tags, data = data_raw[::,1:5].astype(int), data_raw[::,5:]
         yield tags,data
 
-class Data:
+class Data: ### -> cam -1
     def __init__(self,sector,default,insert = []) -> None:
         self.sector = sector
         vec = get_sector_data(sector,'vector',verbose=False)
@@ -37,9 +47,10 @@ class Data:
         #########################################
         # Get transient data here
         #########################################
-        self.scalartran = np.array([])
-        self.vectortran = np.array([])
-        self.signattran = np.array([])
+
+        self.scalartran = np.genfromtxt( path /"T_scalar.csv", delimiter=',')[::,5:]
+        self.vectortran = np.genfromtxt( path /"T_vector.csv", delimiter=',')[::,5:]
+        self.signattran = np.genfromtxt( path /"T_signat.csv", delimiter=',')[::,5:]
     
     def update_inset(self,insert):
         self.ind = np.concatenate((self.ind,insert))
@@ -51,7 +62,7 @@ class Data:
     def get(self,tag,verbose = False, type = None):
         if type is None:
             type =self.default_type
-        if tag[0]==5:
+        if tag[0]==-1:
             if type == 'scalar':
                 ind = self.transientfind.find(tag)
                 if ind in self.ind:
@@ -118,9 +129,19 @@ class Data:
 class AccuracyTest:     # Generative vs Discriminative Model
     def __init__(self, pre_tags) -> None:
         self.tags = pre_tags
-    def insert(self):
+    def insert(self,num) -> tuple[list[int], list[int]]: #(ind,tags)
+        return (i:=random.sample(range(len(transient_tags)),num), [transient_tags[ind] for ind in i])
+    def measure(self,datafinder : Data,result_tags):
+        passed_tags = []
+        for tag in result_tags:
+            try:
+                passed_tags.append(datafinder.transientfind.find(tag))
+            except TagNotFound:
+                continue
+        assert all(ind in datafinder.ind for ind in passed_tags)
+        print(f'Retention Accuracy: {round(len(passed_tags)/len(datafinder.ind),4)*100}')
         pass
-    def measure(self,target = None, tags= [], trials = 1, seed = None,*args, **kwargs):
+    def test(self,target = None, tags= [], trials = 1, seed = None,*args, **kwargs):
         assert target is not None
         target()
 

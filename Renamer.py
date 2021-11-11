@@ -23,10 +23,12 @@ for cam,ccd in np.ndindex((4,4)):
 
     sector2 = str(sector) if sector > 9 else '0'+str(sector)
     path2 = Path(str(gen_path(sector,cam,ccd,0,0))[:-6])
-    path1 = working_folder / f"known_transient_lc/sector{sector2}/cam{cam}_ccd{ccd}/lc_discovery"
+    #path2 = Path('/Users/abdullah/Desktop/UROP/Tess/local_code/py_code/transient_data/transient_lc')
+    path1 = working_folder / f"known_transient_lc/sector{sector2}/cam{cam}_ccd{ccd}/lc_discovery/"
     name = []
     try:
         with os.scandir(path1) as entries:
+            #print('scanning')
             for entry in entries:
                 if entry.name[-3:] in {'png'}:
                     continue
@@ -40,9 +42,9 @@ for cam,ccd in np.ndindex((4,4)):
                     continue
                 print(tuple(entry_data[1:]))
                 transi = np.concatenate((transi, np.array(entry_data[1:]).reshape(1,entry_data.shape[0]-1).astype('int64')),axis = 0)
-                copyfile(path1 / f"{entry.name}",path2/f"lc_{entry_data[-2]}.{entry_data[-1]}")
+                os.remove(path2/f"lc_{entry_data[-2]}.{entry_data[-1]}")
     except FileNotFoundError:
         continue
 print(transi)
-with open(working_folder / f"{sector}_transients.txt", 'w') as f:
-    np.savetxt(f,transi[1:,:])
+#with open(working_folder / f"{sector}_transients.txt", 'w') as f:
+#    np.savetxt(f,transi[1:,:])

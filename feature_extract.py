@@ -456,10 +456,65 @@ def extract_signat_features(sector):
     with open(Path(f'Features/{sector}_signat.csv'), 'w') as file:
         np.savetxt(file,all_data,fmt = '%1.5e',delimiter=',')
 
+def get_transient_features():
+    path1 = Path('/Users/abdullah/Desktop/UROP/Tess/local_code/py_code/transient_data/')
+    path = path1 / 'transient_lc'
+    tags = []
+    all_data =[]
+    with os.scandir(path) as entries:
+        for i,entry in enumerate(entries):
+            if not entry.name.startswith('.') and entry.is_file():
+                if entry.name[:3] != 'lc_':
+                    continue
+                tag = (-1,-1,-1,*get_coords_from_path(entry.name))
+                tags.append(tag)
+    
+    with concurrent.futures.ProcessPoolExecutor() as executer:
+        results = executer.map(extract_scalar_feat_from_tag,tags)
+        Data = []
+        for i,feat in enumerate(results):
+            if i%100 == 0:
+                print(i)
+            if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
+                Data.append(feat)
+        Data = np.array(Data)
+        all_data = Data if all_data == [] else np.concatenate((all_data,Data))
+    with open(path1 / 'T_scalar.csv', 'w') as file:
+        np.savetxt(file,all_data,fmt = '%1.5e',delimiter=',')
+       
+    all_data =[]
+    with concurrent.futures.ProcessPoolExecutor() as executer:
+        results = executer.map(extract_vector_feat_from_tag,tags)
+        Data = []
+        for i,feat in enumerate(results):
+            if i%100 == 0:
+                print(i)
+            if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
+                Data.append(feat)
+        Data = np.array(Data)
+        all_data = Data if all_data == [] else np.concatenate((all_data,Data))
+    with open(path1 / 'T_vector.csv', 'w') as file:
+        np.savetxt(file,all_data,fmt = '%1.5e',delimiter=',')
+       
+    all_data =[]
+    with concurrent.futures.ProcessPoolExecutor() as executer:
+        results = executer.map(extract_signat_feat_from_tag,tags)
+        Data = []
+        for i,feat in enumerate(results):
+            if i%100 == 0:
+                print(i)
+            if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
+                Data.append(feat)
+        Data = np.array(Data)
+        all_data = Data if all_data == [] else np.concatenate((all_data,Data))
+    with open(path1 / 'T_signat.csv', 'w') as file:
+        np.savetxt(file,all_data,fmt = '%1.5e',delimiter=',')
+    pass
 
  
 if __name__ == '__main__':
-    extract_scalar_features(38)
+    get_transient_features()
+    #extract_scalar_features(38)
     #extract_scaler_features(32)
     #extract_scaler_features(39)
     #extract_scaler_features(40)
