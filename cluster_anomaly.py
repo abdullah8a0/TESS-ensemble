@@ -1,4 +1,4 @@
-from accuracy_model import Data
+from accuracy_model import AccuracyTest, Data
 import cluster_secondary 
 import umap
 import hdbscan
@@ -136,13 +136,13 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
     plt.show()
     #input('Press Enter to continue\n')
 
-def cluster_and_plot(tags,datafinder : Data = None,plot_flag = False,dim =15, metric = 'euclidean', write=True, verbose=False, vet_clus=False, model_persistence=False, training_sector=None):
+def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =15,suppress=False ,metric = 'euclidean', write=True, verbose=False, vet_clus=False, model_persistence=False, training_sector=None):
 
     tag_finder = lcobj.TagFinder(tags)
     data = datafinder.get_all(type='scalar')
 
     transformed_data = scale_simplify(data,verbose,dim)
-    if verbose:
+    if verbose and not suppress:
         print("---Dimesionality Reduced. Starting Cluster using HDBSCAN---")
     
     size_base,samp_base = 15,3
@@ -158,7 +158,7 @@ def cluster_and_plot(tags,datafinder : Data = None,plot_flag = False,dim =15, me
             labels = new_labels
             num_clus =  np.max(new_labels)
             clus_count = [np.count_nonzero(new_labels == i) for i in range(-1,1+num_clus)]
-            if len(clus_count) == 1:
+            if len(clus_count) == 1 and not suppress:
                 print(f'{size}, {samp}\t: No Clustering\n')
                 continue
             ind = np.argpartition(np.array(clus_count), -2)[-2:]
@@ -178,8 +178,11 @@ def cluster_and_plot(tags,datafinder : Data = None,plot_flag = False,dim =15, me
             
             reduction = 1-sum(len(i) for i in anomalies)/tags.shape[0]
             a,b ='*','.'
-            print(f'{size}, {samp}\t: {a if (good:=(0.65>reduction>0.5)) else b}\t{reduction}\n\t  {clus_count}')
-            if good:
+            if not suppress:
+                print(f'{size}, {samp}\t: {a if (good:=(0.65>reduction>0.5)) else b}\t{reduction}\n\t  {clus_count}')
+            if (0.65>reduction>0.5):
+                if suppress:
+                    print(f'{size}, {samp}\t: {a if (good:=(0.65>reduction>0.5)) else b}\t{reduction}\n\t  {clus_count}')
                 br = True
                 break
 
@@ -197,7 +200,7 @@ def cluster_and_plot(tags,datafinder : Data = None,plot_flag = False,dim =15, me
 
     if plot_flag:
             
-        if verbose:
+        if verbose and not suppress:
             print("---Clustering done. Visualising using t-SNE---")
         tsne_plot(datafinder.sector,tags,transformed_data,new_labels)
 
@@ -207,7 +210,7 @@ def cluster_and_plot(tags,datafinder : Data = None,plot_flag = False,dim =15, me
     
 
 
-    if verbose:
+    if verbose and not suppress:
         print("Number of cluster:",num_clus+1)
         print(clus_count)
 
@@ -222,16 +225,19 @@ def cluster_and_plot(tags,datafinder : Data = None,plot_flag = False,dim =15, me
     
     ### FORWARD BYPASS
     main_blob = tags[(main_blob_ind:=clusters[clus_count.index(max(clus_count))])]
-    forwards = cluster_secondary.forwarding(main_blob,datafinder)
+    model = AccuracyTest(main_blob)
+    kwargs = {'data_api':datafinder}
+    input("Starting Forwarding test")
+    forwards = model.test(data_api_model=datafinder,target=cluster_secondary.forwarding,num=30,trials=5,seed=137,**kwargs)
+    input("Done, enter to continue")
+    #forwards = cluster_secondary.forwarding(main_blob,datafinder)
     forwards_ind = np.array([tag_finder.find(tag) for tag in forwards])
     forwards_data = transformed_data[forwards_ind]
 
     forest = IsolationForest(random_state=314,contamination=0.1,n_jobs=-1)
     forest.fit(transformed_data[main_blob_ind])
     score_ = forest.decision_function(forwards_data)
-    #print(score_)
     good_to_forward_ind = np.argpartition(-score_, -len(score_)//10)[-len(score_)//10:]
-    #print(good_to_forward_ind)
 
     anomalies.append(forwards_ind[good_to_forward_ind])
 
@@ -249,7 +255,8 @@ def cluster_and_plot(tags,datafinder : Data = None,plot_flag = False,dim =15, me
     #    
     #    np.savetxt(Path(f'Processed/{name_}.txt'),np.array(ret), fmt='%1d',delimiter =',')
         
-    print(f'Data reduction: {round(100-100*sum(len(x) for x in anomalies)/(len(tags)),1)}%')
+    if not suppress:
+        print(f'Data reduction: {round(100-100*sum(len(x) for x in anomalies)/(len(tags)),1)}%')
 
 
 #    if vet_clus:

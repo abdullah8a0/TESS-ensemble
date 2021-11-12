@@ -60,6 +60,10 @@ def func(tag):
 
 
 def cluster_secondary_run(sector,verbose=False):
+    """
+    Uhhh WTF is this? I dont remember coding this. TODO: Figure out what this does??
+    """
+
     raw_data = np.genfromtxt(Path(f'Results/{sector}.txt'),delimiter =',')
     tags,feat_s = raw_data[:,:4].astype('int32'),raw_data[:,30:]
     #tags,feat_s = next(lcobj.get_sector_data(sector,'s',verbose=verbose))
@@ -82,8 +86,9 @@ def cluster_secondary_run(sector,verbose=False):
     cluster_anomaly.tsne_plot(tags,transformed_data,labels,with_sec=True)
 
 
-def forwarding(tags,datafinder: Data,verbose=False):
+def forwarding(tags,data_api: Data = None,verbose=False):
     print('--Begin Forwarding--')
+    datafinder = data_api
     tags_without_sector = tags
     #tagsfinder = lcobj.TagFinder(tags)
     #sector = datafinder.sector
@@ -119,7 +124,7 @@ def forwarding(tags,datafinder: Data,verbose=False):
     to_forward = np.logical_and(np.logical_and(longs<3,longs>0),short<2)
     #include iso forest 
     print('--End Forwarding--')
-    return [tags_without_sector[forwarded_ind] for forwarded_ind in np.ma.nonzero(to_forward)[0]]
+    return np.array([tags_without_sector[forwarded_ind] for forwarded_ind in np.ma.nonzero(to_forward)[0]])
 
 
 

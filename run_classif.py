@@ -1,10 +1,8 @@
 import cluster_anomaly
 import lcobj
-import feature_extract_vector
-#import feature_extract_scalar
 import cleanup_anomaly
 import numpy as np
-import effect_detection
+#import effect_detection
 import os.path
 from pathlib import Path
 import accuracy_model
@@ -27,11 +25,11 @@ base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 training_sector = None 
 model_persistence = False
 show_TOI = False
-plot_tsne = True
+plot_tsne = False
 tsne_results = True
 tsne_individual_clusters = False    # Set to true to find effects
 vet_results = True   
-verbose = True
+verbose = False
 
 
 ################
@@ -59,8 +57,23 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
 
     # ENFORCE SUB TAGS/ REMOVE SECTOR
     #                                                      5n          5n+3
-    after_cluster = cluster_anomaly.cluster_and_plot(data_api.stags,datafinder = data_api, verbose=verbose,plot_flag=plot_tsne, vet_clus = tsne_individual_clusters,model_persistence=model_persistence, training_sector=training_sector)
     
+    before_tags = data_api.stags
+    model = accuracy_model.AccuracyTest(before_tags)
+    #ind,inserted_tags = model.insert(15)
+    #data_api.new_insert(ind)
+    
+    #after_cluster = cluster_anomaly.cluster_and_plot(tags= inserted_tags,datafinder = data_api, verbose=verbose,plot_flag=plot_tsne, vet_clus = tsne_individual_clusters,model_persistence=model_persistence, training_sector=training_sector)
+    
+    #model.measure(data_api,after_cluster)
+    #after_cluster = model.clean(after_cluster)
+    #data_api.new_insert([])
+
+    kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
+        'model_persistence':model_persistence, 'training_sector':training_sector,'suppress':True}
+
+    after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=50,trials = 1, seed = 137 , **kwargs)
+
     #RTS_clusters = None
     #HTP_clusters = None 
     #if tsne_individual_clusters:# para search after clean up
@@ -69,8 +82,10 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
     
     
     #effect_detection.find_effects(sector)
-    
-    cleaned_tags = cleanup_anomaly.cleanup(anomalies_tags = after_cluster,datafinder=data_api,verbose=verbose)
+    model = accuracy_model.AccuracyTest(after_cluster) 
+    kwargs = {'datafinder':data_api,'verbose': verbose}
+    cleaned_tags = model.test(data_api_model=data_api,target=cleanup_anomaly.cleanup,num=20,trials=5,seed=137,**kwargs)
+    #cleaned_tags = cleanup_anomaly.cleanup(tags = after_cluster,datafinder=data_api,verbose=verbose)
 
 
     np.savetxt(Path(f'Results/{sector}.csv'),cleaned_tags, fmt='%1d',delimiter =',')

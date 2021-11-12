@@ -114,7 +114,7 @@ def func(input):
     return (output,t)
 
 
-def cleanup(anomalies_tags=None,datafinder: Data=None,verbose=False):
+def cleanup(tags=None,datafinder: Data=None,verbose=False):
     print('--Starting Cleanup--')
     #gen = lcobj.get_sector_data(sectors,'s',verbose=False)
     #gen_v = lcobj.get_sector_data(sectors,'v',verbose=False)
@@ -125,16 +125,18 @@ def cleanup(anomalies_tags=None,datafinder: Data=None,verbose=False):
     #feat_v_tag_finder = lcobj.TagFinder(tags_v)
     #ind_s = []
     #ind_v = []
-    #for i,tag in enumerate(anomalies_tags):
+    #for i,tag in enumerate(tags):
     #    try:
     #        ind_s.append(feat_s_tag_finder.find(tag)) #map[bin_search(tags_s,tag)]
     #        ind_v.append(feat_v_tag_finder.find(tag))
     #    except Exception:
     #        continue
 
-    scalar_feat_anom = np.array([datafinder.get(tag,type='scalar') for tag in anomalies_tags])
-    vector_feat_anom = np.array([datafinder.get(tag,type='vector') for tag in anomalies_tags])
-    data_in = ((feat_s,feat_v,tuple((datafinder.sector,*c))) for feat_s,feat_v,c in zip(scalar_feat_anom,vector_feat_anom,anomalies_tags))
+    scalar_feat_anom = np.array([datafinder.get(tag,type='scalar') for tag in tags])
+    scalar_feat_anom = datafinder.get_some(tags,type='scalar')
+    vector_feat_anom = np.array([datafinder.get(tag,type='vector') for tag in tags])
+    vector_feat_anom = datafinder.get_some(tags,type='vector')
+    data_in = ((feat_s,feat_v,tuple((datafinder.sector,*c))) for feat_s,feat_v,c in zip(scalar_feat_anom,vector_feat_anom,tags))
     
     
     
@@ -154,7 +156,7 @@ def cleanup(anomalies_tags=None,datafinder: Data=None,verbose=False):
     cleaned_tags = np.array(cleaned_tags)
 
     print("-- Final Results After Cleanup --")
-    print(len(datafinder.stags),'->',a := anomalies_tags.shape[0], '->',b := len(cleaned_tags))
+    print(len(datafinder.stags),'->',a := tags.shape[0], '->',b := len(cleaned_tags))
     if verbose:
         print("Data Reduction: ",round(100*(1-b/a),1))
     return cleaned_tags[:,1:]

@@ -310,7 +310,7 @@ def extract_scalar_features(sector):
                 if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
                     Data.append(feat)
             Data = np.array(Data)
-            all_data = Data if all_data == [] else np.concatenate((all_data,Data))
+            all_data = Data if all_data == [] else np.concatenate((all_data,Data if len(Data.shape) == 2 else np.array([]).reshape(0,all_data.shape[1])))
     with open(Path(f'Features/{sector}_scalar.csv'), 'w') as file:
         np.savetxt(file,all_data,fmt = '%1.5e',delimiter=',')
 
@@ -380,7 +380,7 @@ def extract_vector_features(sector):
                     Data.append(feat)
             Data = np.array(Data)
 
-            all_data = Data if all_data == [] else np.concatenate((all_data,Data))
+            all_data = Data if all_data == [] else np.concatenate((all_data,Data if len(Data.shape) == 2 else np.array([]).reshape(0,all_data.shape[1])))
     with open(Path(f'Features/{sector}_vector.csv'), 'w') as file:
         np.savetxt(file,all_data,fmt = '%1.5e',delimiter=',')
 
@@ -452,7 +452,7 @@ def extract_signat_features(sector):
                     Data.append(feat)
             Data = np.array(Data)
 
-            all_data = Data if all_data == [] else np.concatenate((all_data,Data))
+            all_data = Data if all_data == [] else np.concatenate((all_data,Data if len(Data.shape) == 2 else np.array([]).reshape(0,all_data.shape[1]) ))
     with open(Path(f'Features/{sector}_signat.csv'), 'w') as file:
         np.savetxt(file,all_data,fmt = '%1.5e',delimiter=',')
 
@@ -513,7 +513,8 @@ def get_transient_features():
 
  
 if __name__ == '__main__':
-    get_transient_features()
+    pass
+    #get_transient_features()
     #extract_scalar_features(38)
     #extract_scaler_features(32)
     #extract_scaler_features(39)

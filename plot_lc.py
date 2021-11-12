@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 from numpy.core.shape_base import block
+from accuracy_model import Data
 from cleanup_anomaly import isdirty
 from TOI_gen import TOI_list
 from cluster_anomaly import hdbscan_cluster
@@ -122,4 +123,8 @@ def plotter():
                 lc.plot()
 
 if __name__ == '__main__':
-    plotter()
+    from accuracy_model import transient_tags
+
+    for tag in transient_tags:
+        LC(-1,*tag).plot()
+    #plotter()
