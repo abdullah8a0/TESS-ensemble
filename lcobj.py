@@ -127,9 +127,9 @@ class LC(object):
         self.is_FFT = False         # Flags whether the instance has these attributes
         self.is_percentiles = False  
 
-        self.normed_flux = (self.flux - self.mean)/np.max(np.abs(self.flux-self.mean))
-        self.normed_time = self.time/np.max(self.time)
-        self.normed_smooth_flux = (self.smooth_flux - self.mean)/np.max(np.abs(self.smooth_flux-self.mean))
+        self.normed_flux = (self.flux - min(self.flux))/(np.ptp(self.flux))
+        self.normed_time = (self.time-self.time[0])/np.ptp(self.time)
+        self.normed_smooth_flux = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
 
     def plot(self, flux = None, time = None, show_bg = True, show_err = False,show_smooth=False,scatter=[]):
         flux = self.flux if flux is None else flux
@@ -157,11 +157,11 @@ class LC(object):
 
     def remove_outliers(self):
         outlier_detector = IsolationForest(n_estimators=200,max_samples=1000,random_state=np.random.RandomState(314),contamination=0.01)  # dynamic percentage?
-        forest = outlier_detector.fit_predict(list(zip(b:=self.normed_flux,a:=np.arange(0,1,1/len(self.normed_flux)))))
+        forest = outlier_detector.fit_predict(list(zip(self.normed_flux,self.normed_time)))
         #forest = outlier_detector.fit_predict(self.normed_flux.reshape(-1,1))
         inliers = np.ma.nonzero(forest==1)[0]
-        self.normed_flux = self.normed_flux[inliers]
-        self.normed_time = self.normed_time[inliers]
+        #self.normed_flux = self.normed_flux[inliers]
+        #self.normed_time = self.normed_time[inliers]
         self.flux        = self.flux[inliers]
         self.time        = self.time[inliers]
         self.error       = self.error[inliers]
@@ -170,6 +170,10 @@ class LC(object):
         self.mean        = np.mean(self.flux)
         self.std         = np.std(self.flux)
         self.median      = np.median(self.flux)
+        self.normed_flux = (self.flux - min(self.flux))/(np.ptp(self.flux))
+        self.normed_time = (self.time-self.time[0])/np.ptp(self.time)
+        self.normed_smooth_flux = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
+        
         try: 
             self.smooth_flux = signal.savgol_filter(self.flux,min((1|int(0.05*self.N),61)), 3)
         except:

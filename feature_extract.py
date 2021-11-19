@@ -330,16 +330,16 @@ def extract_vector_feat_from_tag(tag):
         return None
 
     granularity = 1.0           # In days
-    bins = granularity*np.arange(27)
-    bin_map = np.digitize(lc.normed_time-lc.normed_time[0], bins)
+    bins = granularity*np.arange(round(27/granularity))
+    bin_map = np.digitize(lc.time-lc.time[0], bins)
 
     feat = []
     for bin in bins:# range(1,np.max(bin_map)+1):
-        dp_in_bin = np.ma.nonzero(bin_map == bin+1)
+        dp_in_bin = np.ma.nonzero(bin_map == round(bin/granularity)+1)
         flux, time = lc.normed_flux[dp_in_bin], lc.normed_time[dp_in_bin]
         _, ind = np.unique(time, return_index=True)
         flux, time = flux[ind], time[ind]
-
+        #import matplotlib.pyplot as plt
         if flux.size in {0,1}:
             slope , r = 0,1
         else:
@@ -473,8 +473,7 @@ def get_transient_features():
         results = executer.map(extract_scalar_feat_from_tag,tags)
         Data = []
         for i,feat in enumerate(results):
-            if i%100 == 0:
-                print(i)
+            print(i)
             if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
                 Data.append(feat)
         Data = np.array(Data)
@@ -487,8 +486,7 @@ def get_transient_features():
         results = executer.map(extract_vector_feat_from_tag,tags)
         Data = []
         for i,feat in enumerate(results):
-            if i%100 == 0:
-                print(i)
+            print(i)
             if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
                 Data.append(feat)
         Data = np.array(Data)
@@ -501,8 +499,7 @@ def get_transient_features():
         results = executer.map(extract_signat_feat_from_tag,tags)
         Data = []
         for i,feat in enumerate(results):
-            if i%100 == 0:
-                print(i)
+            print(i)
             if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
                 Data.append(feat)
         Data = np.array(Data)
@@ -511,13 +508,33 @@ def get_transient_features():
         np.savetxt(file,all_data,fmt = '%1.5e',delimiter=',')
     pass
 
- 
+def get_all(sector):
+    extract_scalar_features(sector)
+    extract_vector_features(sector)
+    extract_signat_features(sector)
+
 if __name__ == '__main__':
+    #tag = (32,1,1,1495,1941) 
+    #lc = LC(*tag).plot()
+    #feat = extract_vector_feat_from_tag(tag)[5:]
+    #slope = feat[::2]
+    #import matplotlib.pyplot as plt
+    #plt.scatter(lc.normed_time,lc.normed_flux)
+
+
     pass
-    #get_transient_features()
-    #extract_scalar_features(38)
-    #extract_scaler_features(32)
-    #extract_scaler_features(39)
-    #extract_scaler_features(40)
-    #extract_scaler_features(41)
-    #extract_scaler_features(42)
+    #get_all(32)
+    #get_all(39)
+    #get_all(40)
+    #get_all(41)
+    #get_all(42)
+    #get_all(43)
+    get_transient_features()
+    exit()
+    extract_vector_features(38)
+    extract_vector_features(32)
+    extract_vector_features(39)
+    extract_vector_features(40)
+    extract_vector_features(41)
+    extract_vector_features(42)
+    extract_vector_features(43)

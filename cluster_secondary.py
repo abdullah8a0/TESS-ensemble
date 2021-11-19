@@ -87,7 +87,6 @@ def cluster_secondary_run(sector,verbose=False):
 
 
 def forwarding(tags,data_api: Data = None,verbose=False):
-    print('--Begin Forwarding--')
     datafinder = data_api
     tags_without_sector = tags
     #tagsfinder = lcobj.TagFinder(tags)
@@ -123,7 +122,6 @@ def forwarding(tags,data_api: Data = None,verbose=False):
 
     to_forward = np.logical_and(np.logical_and(longs<3,longs>0),short<2)
     #include iso forest 
-    print('--End Forwarding--')
     return np.array([tags_without_sector[forwarded_ind] for forwarded_ind in np.ma.nonzero(to_forward)[0]])
 
 

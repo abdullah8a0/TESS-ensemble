@@ -43,7 +43,7 @@ class Data: ### -> cam -1
         self.tagfindsignat = TagFinder(self.signattags)
         self.transientfind = TagFinder(transient_tags)
         self.default_type = default
-        self.ind = insert
+        self.ind = [insert]
         #########################################
         # Get transient data here
         #########################################
@@ -51,17 +51,31 @@ class Data: ### -> cam -1
         self.scalartran = np.genfromtxt( path /"T_scalar.csv", delimiter=',')[::,5:]
         self.vectortran = np.genfromtxt( path /"T_vector.csv", delimiter=',')[::,5:]
         self.signattran = np.genfromtxt( path /"T_signat.csv", delimiter=',')[::,5:]
+        ###################### Mask for testing
+        smask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
+        vmask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
+        signatmask = [True]*81
+        self.vdata = self.vdata[:,vmask]
+        self.sdata = self.sdata[:,smask]
+        self.signatdata = self.signatdata[:,signatmask]
+        self.vectortran = self.vectortran[:,vmask]
+        self.scalartran = self.scalartran[:,smask]
+        self.signattran = self.signattran[:,signatmask]
+        #######################
     
     def update_insert(self,insert):
-        self.ind = np.concatenate((self.ind,insert)).astype('int32')
+        self.ind.append(insert)
         return self
     def new_insert(self,insert):
-        self.ind = np.array(insert)
+        self.ind = [np.array(insert)]
         return self
+    def rollback_insert(self):
+        self.ind.pop()
+        pass
 
     def lookup_tran(self,tag):
         ind = self.transientfind.find(tag)
-        if ind in self.ind:
+        if ind in np.concatenate(self.ind).astype('int32'):
             return ind
         else:
             raise Exception('Data Finder tried to access a tag the it was not allowed to')
@@ -73,19 +87,19 @@ class Data: ### -> cam -1
         if tag[0]==-1:
             if type == 'scalar':
                 ind = self.transientfind.find(tag)
-                if ind in self.ind:
+                if ind in np.concatenate(self.ind).astype('int32'):
                     return self.scalartran[ind]
                 else:
                     raise Exception('Data Finder tried to access a tag the it was not allowed to')
             elif type == 'vector':
                 ind = self.transientfind.find(tag)
-                if ind in self.ind:
+                if ind in np.concatenate(self.ind).astype('int32'):
                     return self.vectortran[ind]
                 else:
                     raise Exception('Data Finder tried to access a tag the it was not allowed to')
             elif type == 'signat':
                 ind = self.transientfind.find(tag)
-                if ind in self.ind:
+                if ind in np.concatenate(self.ind).astype('int32'):
                     return self.signattran[ind]
                 else:
                     raise Exception('Data Finder tried to access a tag the it was not allowed to')
@@ -110,7 +124,7 @@ class Data: ### -> cam -1
         if type == 'scalar':
             sector_data = self.sdata
             if self.ind !=[]:
-                tran_data = self.scalartran[self.ind]##### get transient data ###
+                tran_data = self.scalartran[np.concatenate(self.ind).astype('int32')]##### get transient data ###
             else:
                 tran_data = []
             ret = np.concatenate((sector_data,tran_data)) if len(self.ind) != 0 else sector_data
@@ -118,7 +132,7 @@ class Data: ### -> cam -1
         elif type == 'vector':
             sector_data = self.vdata
             if self.ind !=[]:
-                tran_data = self.vectortran[self.ind]##### get transient data ###
+                tran_data = self.vectortran[np.concatenate(self.ind).astype('int32')]##### get transient data ###
             else:
                 tran_data = []
             ret = np.concatenate((sector_data,tran_data)) if len(self.ind) != 0 else sector_data
@@ -126,7 +140,7 @@ class Data: ### -> cam -1
         elif type == 'signat':
             sector_data = self.signatdata
             if self.ind !=[]:
-                tran_data = self.signattran[self.ind]##### get transient data ###
+                tran_data = self.signattran[np.concatenate(self.ind).astype('int32')]##### get transient data ###
             else:
                 tran_data = []
             ret = np.concatenate((sector_data,tran_data)) if len(self.ind) != 0 else sector_data
@@ -157,38 +171,59 @@ class AccuracyTest:     # Generative vs Discriminative Model
         for tag in result_tags:
             try:
                 passed_tags.append(datafinder.lookup_tran(tag))
+                passed_tags = [i for i in passed_tags  if i in datafinder.ind[-1]] 
             except TagNotFound:
                 continue
-        assert all(ind in datafinder.ind for ind in passed_tags)
-        print(f'Retention Accuracy: {round(len(passed_tags)/len(datafinder.ind),4)*100}')
+        try:
+            assert all(ind in np.concatenate(datafinder.ind).astype('int32') for ind in passed_tags)
+        except AssertionError:
+            raise Exception("There are transients in the data that were not authorized to be salted")
+        rf = len(passed_tags)/len(datafinder.ind[-1])   # Retention factor [0-1]
+        pr = len(passed_tags)/len(result_tags) # purity rate [0-1]
+        print(f'Retention Factor: {round(rf*100,4)}% \t Purity Rate: {round(pr*100,2)}%')
 
-    def test(self,data_api_model:Data=None,target = None,num=10 , trials = 1, seed = None,*args, **kwargs):
+    def test(self,data_api_model:Data=None,target = None,p=None,num=10 , trials = 1, seed = None,*args, **kwargs):
         assert target is not None
+        if trials ==0:
+            return target(tags=np.copy(self.tags),**kwargs)
         random.seed(seed)
-        old_ind = data_api_model.ind
+        if p is not None:
+            num = int(p*len(self.tags))
+        #old_ind = data_api_model.ind
         for i in range(trials):
             print(f'Trial {i}/{trials} starting')
-            ind,inserted_tags = self.insert(num,seed=random.randint(0,50000))
+            ind,inserted_tags = self.insert(num,seed=None)
             data_api_model.update_insert(ind)
 
-            print(f'Insertion finished')
             result_tags = target(tags=inserted_tags,**kwargs)
-            print(f'Results calculated')
+            print(f'Results calculated {target.__name__}')
 
             self.measure(data_api_model,result_tags)
-        post_test = self.clean(result_tags)
+            data_api_model.rollback_insert()
+            pass
+        #post_test = self.clean(result_tags)
+        post_test = target(tags=self.tags,**kwargs)
         print(f'Reduction {len(self.tags)} -> {len(post_test)} = {round(100*(1-len(post_test)/len(self.tags)),2)}')
-        data_api_model.new_insert(old_ind)
+        #data_api_model.new_insert(old_ind)
         return post_test
     
     def clean(self,post_tags) -> np.ndarray:
+        []
         cleaned = post_tags[post_tags[:,0]!=-1] # np.where(post_tags[:,0] == -1,post_tags,np.array([]))
         return cleaned
 
 
 
 if __name__ == '__main__':
+    print(len(transient_tags))
     data = Data(43,'s')
+    data.update_insert([1,2,3])
+    print(data.ind)
+    data.update_insert([4,5,6])
+    print(data.ind)
+    print(np.concatenate(data.ind).astype('int32'))
+    
+    exit()
     model = AccuracyTest(np.array([(1,1,1,1),(1,1,1,2)]))
     ind,tags = model.insert(5)
     print(tags)

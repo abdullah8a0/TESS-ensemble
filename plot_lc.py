@@ -124,7 +124,31 @@ def plotter():
 
 if __name__ == '__main__':
     from accuracy_model import transient_tags
+    stack: list[LC] = []
+    for i,tag in enumerate(transient_tags):
+        if 9*(len(transient_tags)//9)<i:
+            print(tag)
+            LC(-1,*tag).remove_outliers().plot()
+        if i>0 and i%9 ==0:
+            #plot shit 
+            fig, axs = plt.subplots(3, 3)
+            for j,lc in enumerate(stack):
+                axs[j%3,j//3].scatter(lc.time,lc.flux,s=0.5)
+                axs[j%3,j//3].set_title(f'{lc.cam} {lc.ccd} {lc.coords}')
+            #for ax in axs.flat:
+            #    ax.set(xlabel='x-label', ylabel='y-label')
 
-    for tag in transient_tags:
-        LC(-1,*tag).plot()
+                # Hide x labels and tick labels for top plots and y ticks for right plots.
+            for ax in axs.flat:
+                ax.label_outer()
+            fig.show() 
+            plt.show()
+            stack = []
+        stack.append(LC(-1,*tag).remove_outliers())
+    
+    #from binning import bin
+    #for tag in transient_tags[1:2]:
+    #    lc = LC(-1,*tag).remove_outliers()
+    #    lc.plot(flux=lc.normed_flux,time=lc.normed_time,show_bg=False)
+    #    bin((-1,*tag))
     #plotter()

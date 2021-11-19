@@ -227,9 +227,9 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
     main_blob = tags[(main_blob_ind:=clusters[clus_count.index(max(clus_count))])]
     model = AccuracyTest(main_blob)
     kwargs = {'data_api':datafinder}
-    input("Starting Forwarding test")
-    forwards = model.test(data_api_model=datafinder,target=cluster_secondary.forwarding,num=30,trials=5,seed=137,**kwargs)
-    input("Done, enter to continue")
+    #input("Starting Forwarding test")
+    forwards = model.test(data_api_model=datafinder,target=cluster_secondary.forwarding,num=30,trials=0,seed=137,**kwargs)
+    #input("Done, enter to continue")
     #forwards = cluster_secondary.forwarding(main_blob,datafinder)
     forwards_ind = np.array([tag_finder.find(tag) for tag in forwards])
     forwards_data = transformed_data[forwards_ind]

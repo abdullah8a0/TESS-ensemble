@@ -2,6 +2,7 @@ Processed/
 Effects/*
 Features/*
 Results/*
+keras_processing/
 DS_Store
 __pycache__/
 test.py
