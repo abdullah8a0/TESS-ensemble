@@ -122,8 +122,85 @@ def plotter():
                 print(feat_data[np.ma.nonzero([ (x==tag).all() for x in feat_tag]),11])
                 lc.plot()
 
+
+def remove_outliers(self: LC):
+    #outlier_detector = IsolationForest(n_estimators=200,max_samples=1000,random_state=np.random.RandomState(314),contamination=0.01)  # dynamic percentage?
+    #forest = outlier_detector.fit_predict(list(zip(self.normed_flux,self.normed_time)))
+    #inliers = np.ma.nonzero(forest==1)[0]
+    
+    
+    EPSILON = 0.05   
+    time = self.normed_time
+    #time.resize(math.ceil(self.N/WIDTH)*WIDTH)
+    #time.reshape(math.ceil(self.N/WIDTH),WIDTH)
+
+    flux = self.normed_flux
+
+    groups : dict= {0:{(time[0],flux[0])}}
+
+    #block = [p for p in zip(time[:WIDTH],flux[:WIDTH])]
+    block = [(time[0],flux[0],0)]
+
+    for t,f in zip(time[1:],flux[1:]):
+        #if len(block)==WIDTH:
+        #    block.pop(0)
+        while block and abs(block[0][0]-t)>EPSILON:
+            block.pop(0)
+        seen_groups =set()
+        seen_points = set()
+        for t_,f_,g_ in block:
+            if abs(f_-f)>EPSILON:
+                continue
+            seen_points.add((t_,f_))
+            seen_groups.add(g_)
+
+        if len(seen_groups)>1:  # combines groups 
+            new = set()
+            for group in seen_groups:
+                new |= groups[group]
+                del groups[group]
+            new.add((t,f))
+            groups[min(seen_groups)] = new
+            block = [(i,j,min(seen_groups) if (i,j) in new else k) for i,j,k in block]
+            tfgroup = min(seen_groups)
+        elif len(seen_groups) == 1:     # adds a to an existing group
+            tfgroup = min(seen_groups)
+            groups[tfgroup].add((t,f))
+        else:   # creates a new group
+            tfgroup = max(groups.keys())+1
+            groups[tfgroup] = set([(t,f)])
+
+        block.append((t,f,tfgroup))
+
+
+    #for group in groups:
+
+    return groups
+
+
 if __name__ == '__main__':
+
+    tags = [(38, 4, 4, 1001, 990),
+    (38, 4, 2, 1715, 943),
+    (38, 4, 4, 1010, 998),
+    (38, 4, 4, 846, 737),
+    (38, 4, 4, 640, 937),
+    (38, 4, 4, 900, 868),
+    (38, 4, 4, 958, 614)]
+    tags = [(43, 1, 1, 1016, 338)]
+
     from accuracy_model import transient_tags
+    for tag in tags:
+        lc = LC(*tag).plot(show_bg=False)
+        groups = remove_outliers(lc)
+        print(groups.keys())
+        for g in groups.values():
+            n = np.array(list(g))
+            plt.scatter(n[:,0],n[:,1])
+        plt.show()
+        lc.remove_outliers().plot(show_bg=False)
+
+    exit()
     stack: list[LC] = []
     for i,tag in enumerate(transient_tags):
         if 9*(len(transient_tags)//9)<i:

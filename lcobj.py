@@ -20,7 +20,7 @@ def gen_path(sector,cam,ccd,col,row):
     file_name = 'lc_'+str(col)+'.'+str(row)
     cam,ccd,col,row = str(cam),str(ccd),str(col),str(row)
 
-    if int(cam) == -1:
+    if -1 in {int(cam),int(ccd),int(sector)} :
         return Path(f'/Users/abdullah/Desktop/UROP/Tess/local_code/py_code/transient_data/transient_lc/lc_{col}.{row}')
         
 
@@ -127,9 +127,9 @@ class LC(object):
         self.is_FFT = False         # Flags whether the instance has these attributes
         self.is_percentiles = False  
 
-        self.normed_flux = (self.flux - min(self.flux))/(np.ptp(self.flux))
-        self.normed_time = (self.time-self.time[0])/np.ptp(self.time)
-        self.normed_smooth_flux = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
+        self.normed_flux : np.ndarray = (self.flux - min(self.flux))/(np.ptp(self.flux))
+        self.normed_time : np.ndarray = (self.time-self.time[0])/np.ptp(self.time)
+        self.normed_smooth_flux : np.ndarray = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
 
     def plot(self, flux = None, time = None, show_bg = True, show_err = False,show_smooth=False,scatter=[]):
         flux = self.flux if flux is None else flux
@@ -156,12 +156,60 @@ class LC(object):
         return self
 
     def remove_outliers(self):
-        outlier_detector = IsolationForest(n_estimators=200,max_samples=1000,random_state=np.random.RandomState(314),contamination=0.01)  # dynamic percentage?
-        forest = outlier_detector.fit_predict(list(zip(self.normed_flux,self.normed_time)))
-        #forest = outlier_detector.fit_predict(self.normed_flux.reshape(-1,1))
-        inliers = np.ma.nonzero(forest==1)[0]
-        #self.normed_flux = self.normed_flux[inliers]
-        #self.normed_time = self.normed_time[inliers]
+        #outlier_detector = IsolationForest(n_estimators=200,max_samples=1000,random_state=np.random.RandomState(314),contamination=0.01)  # dynamic percentage?
+        #forest = outlier_detector.fit_predict(list(zip(self.normed_flux,self.normed_time)))
+        #inliers = np.ma.nonzero(forest==1)[0]
+        
+    
+        EPSILON = 0.05   
+        time = self.normed_time
+        #time.resize(math.ceil(self.N/WIDTH)*WIDTH)
+        #time.reshape(math.ceil(self.N/WIDTH),WIDTH)
+
+        flux = self.normed_flux
+
+        groups : dict= {0:{0}}
+
+        #block = [p for p in zip(time[:WIDTH],flux[:WIDTH])]
+        block = [(0,time[0],flux[0],0)] #(ind,t,f,g)
+
+        for i,(t,f) in enumerate(zip(time[1:],flux[1:]),1):
+            while block and abs(block[0][1]-t)>EPSILON:
+                block.pop(0)
+            seen_groups =set()
+            #seen_points = set()
+            for i_,t_,f_,g_ in block:
+                if abs(f_-f)>EPSILON:
+                    continue
+                #seen_points.add((t_,f_))
+                seen_groups.add(g_)
+
+            if len(seen_groups)>1:  # combines groups 
+                new = set()
+                for group in seen_groups:
+                    new |= groups[group]
+                    del groups[group]
+                new.add(i)
+                groups[min(seen_groups)] = new
+                block = [(ind,i,j,min(seen_groups) if ind in new else k) for ind,i,j,k in block]
+                tfgroup = min(seen_groups)
+            elif len(seen_groups) == 1:     # adds a to an existing group
+                tfgroup = min(seen_groups)
+                groups[tfgroup].add(i)
+            else:   # creates a new group
+                tfgroup = max(groups.keys())+1
+                groups[tfgroup] = set([i])
+
+            block.append((i,t,f,tfgroup))
+        
+        inliers = []
+        for group in groups.values():
+            if len(group)<5:
+                continue
+            inliers += list(group)
+        inliers = np.array(inliers)
+        
+        
         self.flux        = self.flux[inliers]
         self.time        = self.time[inliers]
         self.error       = self.error[inliers]
@@ -317,6 +365,6 @@ def get_coords_from_path(file_path):
     y = file_path[d+1:]
     return (x,y)
 if __name__ == '__main__':
-    LC(32,-1,-1,68,690).plot()
+    LC(32,-1,-1,68,690).remove_outliers().plot()
     pass
     #set_base("C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\")                 # Change this to the folder where your sxx_transient_lcs is located

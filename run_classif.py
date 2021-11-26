@@ -10,7 +10,7 @@ import feature_extract
 
 ### settings you need to care about ### 
 
-sector = 38
+sector = 43
 #base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\"    #<- points to where the transient files are
 base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 #################
@@ -25,7 +25,7 @@ base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 training_sector = None 
 model_persistence = False
 show_TOI = False
-plot_tsne = False
+plot_tsne = True
 tsne_results = True
 tsne_individual_clusters = False    # Set to true to find effects
 vet_results = True   
@@ -72,7 +72,7 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
     kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
         'model_persistence':model_persistence, 'training_sector':training_sector,'suppress':True}
 
-    after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,p=0.04,trials = 5, seed = 137 , **kwargs)
+    after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,p=0.01,trials =0, seed = 137 , **kwargs)
 
     exit()
     #RTS_clusters = None
@@ -85,7 +85,7 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
     #effect_detection.find_effects(sector)
     model = accuracy_model.AccuracyTest(after_cluster) 
     kwargs = {'datafinder':data_api,'verbose': verbose}
-    cleaned_tags = model.test(data_api_model=data_api,target=cleanup_anomaly.cleanup,p=0.04,trials=1,seed=137,**kwargs)
+    cleaned_tags = model.test(data_api_model=data_api,target=cleanup_anomaly.cleanup,p=0.04,trials=0,seed=137,**kwargs)
     #cleaned_tags = cleanup_anomaly.cleanup(tags = after_cluster,datafinder=data_api,verbose=verbose)
 
     np.savetxt(Path(f'Results/{sector}.csv'),cleaned_tags, fmt='%1d',delimiter =',')

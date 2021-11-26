@@ -162,7 +162,10 @@ class AccuracyTest:     # Generative vs Discriminative Model
         self.tags = pre_tags
     def insert(self,num,seed=None) -> tuple[list[int], list[int]]: #(ind,tags)
         random.seed(seed)
-        ind = random.sample(range(len(transient_tags)),num)
+        try:
+            ind = random.sample(range(len(transient_tags)),num)
+        except ValueError:
+            ind = range(len(transient_tags)) 
         tags = np.array([transient_tags[i] for i in ind])
         return (ind,np.concatenate((self.tags,tags)))
 
@@ -199,17 +202,28 @@ class AccuracyTest:     # Generative vs Discriminative Model
             print(f'Results calculated {target.__name__}')
 
             self.measure(data_api_model,result_tags)
+            if i == trials-1:
+                post_test = self.clean(result_tags,data_api_model)
             data_api_model.rollback_insert()
             pass
-        #post_test = self.clean(result_tags)
-        post_test = target(tags=self.tags,**kwargs)
+        #post_test = self.clean(result_tags,data_api_model)
         print(f'Reduction {len(self.tags)} -> {len(post_test)} = {round(100*(1-len(post_test)/len(self.tags)),2)}')
         #data_api_model.new_insert(old_ind)
         return post_test
     
-    def clean(self,post_tags) -> np.ndarray:
-        []
-        cleaned = post_tags[post_tags[:,0]!=-1] # np.where(post_tags[:,0] == -1,post_tags,np.array([]))
+    def clean(self,post_tags,data_api: Data) -> np.ndarray:
+        transients = post_tags[:,0] == -1
+        #print(data_api.ind[-1])
+        #input()
+        for i,tran in enumerate(transients):
+            if tran:
+                tag = post_tags[i,:]
+                #
+                # print(data_api.lookup_tran(tag))
+                #input()
+                if data_api.lookup_tran(tag) not in data_api.ind[-1]:
+                    transients[i] = not transients[i]
+        cleaned = post_tags[~transients] # np.where(post_tags[:,0] == -1,post_tags,np.array([]))
         return cleaned
 
 
@@ -221,16 +235,10 @@ if __name__ == '__main__':
     print(data.ind)
     data.update_insert([4,5,6])
     print(data.ind)
-    print(np.concatenate(data.ind).astype('int32'))
-    
-    exit()
     model = AccuracyTest(np.array([(1,1,1,1),(1,1,1,2)]))
-    ind,tags = model.insert(5)
-    print(tags)
-    data.new_insert(ind)
+    tags = model.tags
+    print(model.clean(tags,data))
 
-    model.measure(data,tags)
-    print(model.clean(tags))
     #print(data.get((1,1,110,956)))
 
 

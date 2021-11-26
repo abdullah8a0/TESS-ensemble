@@ -13,7 +13,7 @@ from sklearn.ensemble import IsolationForest
 import matplotlib.pyplot as plt
 
 
-def scale_simplify(data,verbose,dim):
+def scale_simplify(data,verbose,dim,skip=False):
 
     scaler = StandardScaler()
 
@@ -23,15 +23,18 @@ def scale_simplify(data,verbose,dim):
         print("---Reducing Dimensionality using PCA---")
 
     
-    pca = PCA(n_components=dim) 
-    pca.fit(data_norm)
-    
-    s = sum(pca.explained_variance_ratio_)
-    if verbose:
-        print(s:=sum(pca.explained_variance_ratio_))
-    assert s>0.85 # if fails then increase dimensions
+    if not skip:
+        pca = PCA(n_components=dim) 
+        pca.fit(data_norm)
+        
+        s = sum(pca.explained_variance_ratio_)
+        if verbose:
+            print(s:=sum(pca.explained_variance_ratio_))
+        assert s>0.85 # if fails then increase dimensions
 
-    transformed_data = pca.transform(data_norm)
+        transformed_data = pca.transform(data_norm)
+    else:
+        transformed_data = data_norm
     return transformed_data
 
 def vet_clusters(sector, tags, feat_data, clus_ind,processed = None):
@@ -66,7 +69,42 @@ def hdbscan_cluster(transformed_data,training_sector, min_size,min_samp,metric,e
         return clusterer,hdbscan.approximate_predict(clusterer,transformed_data)[0]
 
 
-def umap_plot(tags,transformed_data,labels,TOI=None,normalized=True,with_sec=False):
+def umap_plot(sector,tags,transformed_data,labels,TOI=None,normalized=True,with_sec=False):
+    '''
+    It didn't require sector before so if something breaks, look at that.
+    '''
+    reducer = umap.UMAP(n_neighbors=15,min_dist=0.01,random_state=314)
+
+    data_umap = reducer.fit_transform(transformed_data)
+    fig,ax = plt.subplots()
+    ax.scatter(data_umap[:,0], data_umap[:, 1], s = 5, picker=5, c= labels)
+
+    def onpick(event):
+        ind = event.ind
+        ccd_point = tags[ind][0]
+        if not with_sec:
+            coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]))
+            print((sector ,*coords))
+            lc = lcobj.LC(sector,*coords)
+        else:
+            coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]),int(ccd_point[4]))
+            print(coords)
+            lc = lcobj.LC(*coords)
+        fig,ax1 = plt.subplots()
+    
+        print(labels[ind])
+        if normalized:
+            ax1.scatter(lc.time,lc.normed_flux,s=0.5)
+        else:
+            ax1.scatter(lc.time,lc.flux,s=0.5)
+        fig.show()
+
+    fig.canvas.mpl_connect('pick_event', onpick)
+    plt.show()
+    return None
+
+
+    #old code
     tags_find = lcobj.TagFinder(tags)
     TOI_ind = []
     TOI = TOI if TOI is not None else []
@@ -94,8 +132,8 @@ def umap_plot(tags,transformed_data,labels,TOI=None,normalized=True,with_sec=Fal
 
         if not with_sec:
             coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]))
-        #    print((sector ,*coords))
-        #    lc = lcobj.LC(sector,*coords)
+            print((sector ,*coords))
+            lc = lcobj.LC(sector,*coords)
         else:
             coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]),int(ccd_point[4]))
             print(coords)
@@ -118,11 +156,11 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
         if not with_sec:
             coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]))
             print((sector ,*coords))
-            lc = lcobj.LC(sector,*coords)
+            lc = lcobj.LC(sector,*coords).remove_outliers()
         else:
             coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]),int(ccd_point[4]))
             print(coords)
-            lc = lcobj.LC(*coords)
+            lc = lcobj.LC(*coords).remove_outliers()
         fig,ax1 = plt.subplots()
     
         print(labels[ind])
@@ -146,7 +184,7 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
         print("---Dimesionality Reduced. Starting Cluster using HDBSCAN---")
     
     size_base,samp_base = 15,3
-    
+    HIGH,LOW = 0.70,0.55
     br = False
     
     while not br:
@@ -178,11 +216,13 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
             
             reduction = 1-sum(len(i) for i in anomalies)/tags.shape[0]
             a,b ='*','.'
-            if not suppress:
-                print(f'{size}, {samp}\t: {a if (good:=(0.65>reduction>0.5)) else b}\t{reduction}\n\t  {clus_count}')
-            if (0.65>reduction>0.5):
+            if suppress:
+                print(f'{size}, {samp}\t: {a if (good:=(HIGH>reduction>LOW)) else b}\t{reduction}\n\t  {clus_count}')
+            if (HIGH>reduction>LOW):
                 if suppress:
-                    print(f'{size}, {samp}\t: {a if (good:=(0.65>reduction>0.5)) else b}\t{reduction}\n\t  {clus_count}')
+                    print(f'{size}, {samp}\t: {a if (good:=(HIGH>reduction>LOW)) else b}\t{reduction}\n\t  {clus_count}')
+                else:
+                    print(f'{size}, {samp}, {reduction}')
                 br = True
                 break
 
@@ -228,7 +268,7 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
     model = AccuracyTest(main_blob)
     kwargs = {'data_api':datafinder}
     #input("Starting Forwarding test")
-    forwards = model.test(data_api_model=datafinder,target=cluster_secondary.forwarding,num=30,trials=0,seed=137,**kwargs)
+    forwards = model.test(data_api_model=datafinder,target=cluster_secondary.forwarding,p=0.04,trials=0,seed=137,**kwargs)
     #input("Done, enter to continue")
     #forwards = cluster_secondary.forwarding(main_blob,datafinder)
     forwards_ind = np.array([tag_finder.find(tag) for tag in forwards])
