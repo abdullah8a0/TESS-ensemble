@@ -73,9 +73,9 @@ def extract_scalar_feat_from_tag(tag):
 
     # Robust Kurtosis
 
-    sigmap = (np.sqrt(lc.N/(lc.N-1)))* (lc.flux - wmean)/lc.error
+    sigmap = (np.sqrt(lc.N/(lc.N-1)))* (lc.flux - wmean)/lc.error #< - divide by zero err
 
-    StetK = (1 / np.sqrt(lc.N * 1.0) * np.sum(np.abs(sigmap)) / np.sqrt(np.sum(sigmap ** 2)))
+    StetK = (1 / np.sqrt(lc.N * 1.0) * np.sum(np.abs(sigmap)) / np.sqrt(np.sum(sigmap ** 2)))# <- invalid in double calar
 
 
     # linear fit
@@ -270,11 +270,13 @@ def extract_scalar_feat_from_tag(tag):
     slope_trend_end = (len(np.where(np.diff(data_end)>0)[0]) - len(np.where(np.diff(data_end)<=0)[0]))/30
     
     
-    ###############
+    delta = lc.normed_flux -lc.normed_smooth_flux
+    rms =  np.sqrt(np.mean(delta**2))
+    ############### 7 12 18
     feat = np.array([*tag,better_amp,med,mean,std,slope,r,skew,max_slope,\
     beyond1std, delta_quartiles, flux_mid_20,flux_mid_35, flux_mid_50, \
     flux_mid_65, flux_mid_80, cons, slope_trend, var_ind, med_abs_dev, \
-    H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width, StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end])
+    H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width, StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms])
 
     return feat.astype('float32')
 
@@ -473,7 +475,8 @@ def get_transient_features():
         results = executer.map(extract_scalar_feat_from_tag,tags)
         Data = []
         for i,feat in enumerate(results):
-            print(i)
+            if i%10 == 0:
+                print(i)
             if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
                 Data.append(feat)
         Data = np.array(Data)
@@ -486,7 +489,8 @@ def get_transient_features():
         results = executer.map(extract_vector_feat_from_tag,tags)
         Data = []
         for i,feat in enumerate(results):
-            print(i)
+            if i%10 == 0:
+                print(i)
             if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
                 Data.append(feat)
         Data = np.array(Data)
@@ -499,7 +503,8 @@ def get_transient_features():
         results = executer.map(extract_signat_feat_from_tag,tags)
         Data = []
         for i,feat in enumerate(results):
-            print(i)
+            if i%10 == 0:
+                print(i)
             if feat is not None and np.all(np.isfinite(feat)) and not np.any(np.isnan(feat)):
                 Data.append(feat)
         Data = np.array(Data)
@@ -523,13 +528,21 @@ if __name__ == '__main__':
 
 
     pass
+    #get_transient_features()
+    extract_scalar_features(39)
+    extract_scalar_features(40)
+    extract_scalar_features(41)
+    extract_scalar_features(43)
+    extract_scalar_features(44)
+    #get_all(44)
+    exit()
     #get_all(32)
-    #get_all(39)
-    #get_all(40)
-    #get_all(41)
-    #get_all(42)
-    #get_all(43)
-    get_transient_features()
+    exit()
+    get_all(39)
+    get_all(40)
+    get_all(41)
+    get_all(42)
+    get_all(43)
     exit()
     extract_vector_features(38)
     extract_vector_features(32)

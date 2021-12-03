@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 from numpy.core.shape_base import block
-from accuracy_model import Data
+from accuracy_model import AccuracyTest, Data
+import accuracy_model
 from cleanup_anomaly import isdirty
 from TOI_gen import TOI_list
 from cluster_anomaly import hdbscan_cluster
@@ -55,25 +56,28 @@ def plotter():
             lc.plot()
 
     elif choice == '2':
-        sectors = input('file name: ').split()
-        file_name = '_'.join(sectors)
-        file_path = Path(f'Results/{file_name}.txt')
-        feat_tag,feat_data = next(lcobj.get_sector_data(sector,'s',verbose=False))
+        sector = input('file name: ')
+        file_name = sector
+        file_path = Path(f'Results/{file_name}.csv')
+        data_api = Data(int(sector),'s')
+        #feat_tag,feat_data = next(get_sector_data(sector,'s',verbose=False))
+        feat_tag,feat_data = data_api.stags,data_api.get_all(type='scalar')
 
         raw_data = np.genfromtxt(file_path,delimiter = ',')
         tags = raw_data[:,:4].astype('int32')
         rand_tags = np.copy(tags)
+        print(tags.shape)
         shuffle(rand_tags)
         for i,tag in enumerate(rand_tags):
 
-            print((i,int(sectors[0]), *tag))
+            print((i,int(sector), *tag))
             cam,ccd,col,row = tag
             
             found,i = False,0
             while not found:
                 try:
-                    lc = lcobj.LC(int(sectors[i]),cam,ccd,col,row)
-                    sec = sectors[i]
+                    lc = lcobj.LC(int(sector),cam,ccd,col,row)
+                    sec = sector
                     found = True
                 except OSError:
                     i+=1
@@ -129,7 +133,7 @@ def remove_outliers(self: LC):
     #inliers = np.ma.nonzero(forest==1)[0]
     
     
-    EPSILON = 0.05   
+    EPSILON = 0.02
     time = self.normed_time
     #time.resize(math.ceil(self.N/WIDTH)*WIDTH)
     #time.reshape(math.ceil(self.N/WIDTH),WIDTH)
@@ -177,21 +181,67 @@ def remove_outliers(self: LC):
 
     return groups
 
+def label(sector):
+    data = Data(sector,'scalar')
+    step = []
+    tags = data.stags
+    feat = data.get_all(type='scalar')[:,25]
+    mask = [feat>1]
+    for tag in tags[mask]:
+        lc = LC(32,*tag).remove_outliers()
+        fig,ax = plt.subplots()
+        ax.scatter(lc.time, lc.flux, s = 5, picker=5)
 
+        def onpick(event):
+            ind = event.ind
+            ccd_point = tags[ind][0]
+            coords = (int(ccd_point[0]),int(ccd_point[1]),int(ccd_point[2]), int(ccd_point[3]))
+            print((sector ,*coords))
+            step.append((sector,*coords))
+
+        fig.canvas.mpl_connect('pick_event', onpick)
+        plt.show()
+    step = np.array(step).astype('int32')
+    np.savetxt(Path(f'{sector}_step.csv'),step, fmt='%1d',delimiter =',')
 if __name__ == '__main__':
+    #plotter()
+    label(32)
+    exit()
+    #exit()
+    #tag = 42,4,2,1581, 1521
+    #tag = 43, 3, 2, 610, 574
+    #tag = 43, 3, 2, 602, 553
+    #data = Data(32,'scalar')
+    #model = AccuracyTest(data.stags[:99,:])
+    #ind,tags = model.insert(99)
+    #np.random.shuffle(tags)
+    #for tag in tags:#,accuracy_model.transient_tags:
+    #    lc = LC(32,*tag)
+    #    print(tag)
+    #    lc.remove_outliers().plot()
+    #    lc.pad_flux()
+    #    lc.make_FFT()
+    #    lc.plot_FFT()
+    #    lc.plot_phase()
 
+    #plotter() #41 40
+    #43, 3, 2, 610, 574
+    #43, 3, 2, 602, 553
     tags = [(38, 4, 4, 1001, 990),
     (38, 4, 2, 1715, 943),
     (38, 4, 4, 1010, 998),
     (38, 4, 4, 846, 737),
     (38, 4, 4, 640, 937),
     (38, 4, 4, 900, 868),
-    (38, 4, 4, 958, 614)]
-    tags = [(43, 1, 1, 1016, 338)]
-
+    (38, 4, 4, 958, 614),
+    (32, 1, 1, 310, 702)]
+    #tags = [(43, 1, 1, 1016, 338)]
+    #tags = Data(43,'s').stags
+    #tags = np.concatenate((43*np.ones((len(tags),1)),tags),axis = 1).astype('int32')
+    #print(tags)
     from accuracy_model import transient_tags
-    for tag in tags:
-        lc = LC(*tag).plot(show_bg=False)
+    for tag in transient_tags:
+        lc = LC(32,*tag).plot(show_bg=False)
         groups = remove_outliers(lc)
         print(groups.keys())
         for g in groups.values():

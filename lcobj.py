@@ -160,8 +160,8 @@ class LC(object):
         #forest = outlier_detector.fit_predict(list(zip(self.normed_flux,self.normed_time)))
         #inliers = np.ma.nonzero(forest==1)[0]
         
-    
-        EPSILON = 0.05   
+        #'''
+        EPSILON = 0.02   
         time = self.normed_time
         #time.resize(math.ceil(self.N/WIDTH)*WIDTH)
         #time.reshape(math.ceil(self.N/WIDTH),WIDTH)
@@ -203,13 +203,25 @@ class LC(object):
             block.append((i,t,f,tfgroup))
         
         inliers = []
-        for group in groups.values():
-            if len(group)<5:
+        top = [[0,0],[0,0],[0,0]]
+        for group,ind in groups.items():
+            if len(ind) > top[0][1]:
+                top = [[0,0],top[0],top[1]]
+                top[0] = [group,len(ind)]
                 continue
-            inliers += list(group)
-        inliers = np.array(inliers)
+            elif len(ind) > top[1][1]:
+                top = [top[0],[0,0],top[1]]
+                top[1] = [group,len(ind)]
+            elif len(ind) > top[2][1]:
+                top[2] = [group,len(ind)]
+        if top[2][1] > 0.2*top[1][1]:
+            inliers = [ind  for i,_ in top for ind in groups[i]]
+        else: 
+            allowed = [top[0][0],top[1][0]]
+            inliers = [ind for i in allowed for ind in groups[i]]
+        inliers = np.sort(np.array(inliers))
         
-        
+        #'''
         self.flux        = self.flux[inliers]
         self.time        = self.time[inliers]
         self.error       = self.error[inliers]
@@ -220,7 +232,6 @@ class LC(object):
         self.median      = np.median(self.flux)
         self.normed_flux = (self.flux - min(self.flux))/(np.ptp(self.flux))
         self.normed_time = (self.time-self.time[0])/np.ptp(self.time)
-        self.normed_smooth_flux = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
         
         try: 
             self.smooth_flux = signal.savgol_filter(self.flux,min((1|int(0.05*self.N),61)), 3)
@@ -230,6 +241,7 @@ class LC(object):
         if self.N < 60:
             raise LCMissingDataError
 
+        self.normed_smooth_flux = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
         return self
     def make_percentiles(self):
         self.percentiles = {i:np.percentile(self.flux,i) for i in range(0,101,1)}
@@ -245,7 +257,6 @@ class LC(object):
     def pad_flux(self):
         perday = 48 if self.sector <= 26 else 144
         bins = int((self.time[-1] - self.time[0])*perday)
-        
         stat = np.nan_to_num(stats.binned_statistic(self.time, self.normed_flux, bins=bins)[0])
 
         pow2 = math.ceil(math.log2(len(stat)) + math.log2(6))
@@ -299,7 +310,7 @@ class LC(object):
         assert self.is_FFT
 
         fig = pylab.gcf()
-        fig.canvas.manager.set_window_title('Figure_'+str(self.coords[0])+'_'+str(self.coords[1])+'_Phase(FFT)')
+        fig.canvas.manager.set_window_title('Figure_'+str(self.cam)+'_'+str(self.ccd)+'_'+str(self.coords[0])+'_'+str(self.coords[1])+'_Phase(FFT)')
         plt.xlabel("Phase")
         plt.ylabel("True Flux (/10^6)")
 

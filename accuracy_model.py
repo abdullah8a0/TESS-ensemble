@@ -52,7 +52,8 @@ class Data: ### -> cam -1
         self.vectortran = np.genfromtxt( path /"T_vector.csv", delimiter=',')[::,5:]
         self.signattran = np.genfromtxt( path /"T_signat.csv", delimiter=',')[::,5:]
         ###################### Mask for testing
-        smask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
+        smask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
+        #smask[19] = False
         vmask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
         signatmask = [True]*81
         self.vdata = self.vdata[:,vmask]

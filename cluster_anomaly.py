@@ -1,3 +1,4 @@
+from typing import Sequence
 from accuracy_model import AccuracyTest, Data
 import cluster_secondary 
 import umap
@@ -68,13 +69,25 @@ def hdbscan_cluster(transformed_data,training_sector, min_size,min_samp,metric,e
             clusterer = load(file)
         return clusterer,hdbscan.approximate_predict(clusterer,transformed_data)[0]
 
-
-def umap_plot(sector,tags,transformed_data,labels,TOI=None,normalized=True,with_sec=False):
+import accuracy_model
+def umap_plot(sector,tags,transformed_data,labels,TOI:Data=None,normalized=True,with_sec=False):
     '''
     It didn't require sector before so if something breaks, look at that.
     '''
+    if TOI is None:
+        tran = []
+    else: 
+        tran = [tuple(accuracy_model.transient_tags[i]) for i in TOI.ind[-1]]
     reducer = umap.UMAP(n_neighbors=15,min_dist=0.01,random_state=314)
-
+    for i,tag in enumerate(tags):
+    
+        if with_sec:
+            if tuple(tag)[1:] in tran:
+                labels[i] = 0.5
+        else:
+            if tuple(tag) in tran:
+                labels[i] = 0.5
+    
     data_umap = reducer.fit_transform(transformed_data)
     fig,ax = plt.subplots()
     ax.scatter(data_umap[:,0], data_umap[:, 1], s = 5, picker=5, c= labels)
@@ -144,11 +157,25 @@ def umap_plot(sector,tags,transformed_data,labels,TOI=None,normalized=True,with_
     input('Press Enter to continue\n')
     plt.show(block=False)
 
-def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False):
+def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False,TOI:Data = None):
+    labels = list(labels)
+
+    if TOI is None:
+        tran = []
+    else: 
+        tran = [accuracy_model.transient_tags[i] for i in TOI.ind[-1]]
+
+    for i,tag in enumerate(tags):
+        if with_sec:
+            if tuple(tag)[1:] in tran:
+                labels[i] = 2.5
+        else:
+            if tuple(tag) in tran:
+                labels[i] = 2.5
 
     fig,ax = plt.subplots()
     data_tsne = TSNE(n_components=2).fit_transform(transformed_data)        ############# transformed or normed
-    ax.scatter(data_tsne[:,0], data_tsne[:, 1], s = 5, picker=5, c= labels) 
+    ax.scatter(data_tsne[:,0], data_tsne[:, 1], s = 10, picker=5, c= labels) 
     
     def onpick(event):
         ind = event.ind
@@ -163,7 +190,7 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
             lc = lcobj.LC(*coords).remove_outliers()
         fig,ax1 = plt.subplots()
     
-        print(labels[ind])
+        print(labels[ind[0]])
         if normalized:
             ax1.scatter(lc.time,lc.normed_flux,s=0.5)
         else:
@@ -184,7 +211,7 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
         print("---Dimesionality Reduced. Starting Cluster using HDBSCAN---")
     
     size_base,samp_base = 15,3
-    HIGH,LOW = 0.70,0.55
+    HIGH,LOW = 0.72,0.55
     br = False
     
     while not br:
@@ -242,7 +269,7 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
             
         if verbose and not suppress:
             print("---Clustering done. Visualising using t-SNE---")
-        tsne_plot(datafinder.sector,tags,transformed_data,new_labels)
+        tsne_plot(datafinder.sector,tags,transformed_data,new_labels,TOI=datafinder)
 
     num_clus =  np.max(new_labels)
 

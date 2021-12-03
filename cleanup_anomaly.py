@@ -9,10 +9,10 @@ import numpy as np
 
 
 def sec_isdirty(feat_s):
-    if feat_s[-7] > 0.45:# and feat_s[-6]>1000:
+    if feat_s[19] > 100:# and feat_s[-6]>1000:
         return True
-    if feat_s[9] < 0.025:
-        return True
+    #if feat_s[9] < 0.025:
+    #    return True
     if feat_s[0]<5000:
         return True 
     
