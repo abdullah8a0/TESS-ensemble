@@ -53,7 +53,22 @@ class Data: ### -> cam -1
         self.signattran = np.genfromtxt( path /"T_signat.csv", delimiter=',')[::,5:]
         ###################### Mask for testing
         smask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
-        #smask[19] = False
+        smask[5] = False
+        smask[8] = False
+        smask[11] = False
+        smask[13] = False
+        smask[14] = False
+        smask[16] = False
+        smask[20] = False
+        smask[24] = False
+        smask[25] = False
+        smask[28] = False
+        feat_names = 'better_amp,med,mean,std,slope,r,skew,max_slope,\
+beyond1std, delta_quartiles, flux_mid_20,flux_mid_35, flux_mid_50, \
+flux_mid_65, flux_mid_80, cons, slope_trend, var_ind, med_abs_dev, \
+H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width,\
+StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
+        self.feat_names_filtered = [feat_names[ind] for ind,i in enumerate(smask) if i]
         vmask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
         signatmask = [True]*81
         self.vdata = self.vdata[:,vmask]
@@ -195,7 +210,7 @@ class AccuracyTest:     # Generative vs Discriminative Model
             num = int(p*len(self.tags))
         #old_ind = data_api_model.ind
         for i in range(trials):
-            print(f'Trial {i}/{trials} starting')
+            print(f'Trial {i+1}/{trials} starting')
             ind,inserted_tags = self.insert(num,seed=None)
             data_api_model.update_insert(ind)
 
@@ -230,6 +245,9 @@ class AccuracyTest:     # Generative vs Discriminative Model
 
 
 if __name__ == '__main__':
+    data = Data(32,'scalar')
+    print(dict((i for i in enumerate(data.feat_names_filtered))))
+    exit()
     print(len(transient_tags))
     data = Data(43,'s')
     data.update_insert([1,2,3])

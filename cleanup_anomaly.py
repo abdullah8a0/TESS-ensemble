@@ -1,32 +1,32 @@
 import concurrent.futures
 from pathlib import Path
 from scipy import stats
-from accuracy_model import Data
+from accuracy_model import AccuracyTest, Data
 import lcobj
 import numpy as np
 
 
-
+# implement decision tree as forwarding
 
 def sec_isdirty(feat_s):
-    if feat_s[19] > 100:# and feat_s[-6]>1000:
+    if feat_s[13] > 100:# and feat_s[-6]>1000:
         return True
     #if feat_s[9] < 0.025:
     #    return True
-    if feat_s[0]<5000:
-        return True 
+    #if feat_s[0]<5000:
+    #    return True 
     
     return False#find score at the end
 
-    #feat = np.array([*tag,better_amp,med,mean,std,slope,r,skew,max_slope,\
-    #beyond1std, delta_quartiles, flux_mid_20,flux_mid_35, flux_mid_50, \
-    #flux_mid_65, flux_mid_80, cons, slope_trend, var_ind, med_abs_dev, \
-    #H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width, StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end])
 
 def is_chatter(tag):
+    return False
     lc = lcobj.LC(*tag).remove_outliers()
     delta = lc.flux -lc.smooth_flux
     ret = (i:=stats.anderson(delta)[0])>5
+    if ret and tag[1]==-1:
+        print('chatter: ',tag,i)
+
     return ret
 
 
@@ -163,4 +163,10 @@ def cleanup(tags=None,datafinder: Data=None,verbose=False):
     #np.savetxt(Path(f'Results/{sectors[0]}.txt'), cleaned_tags[:,1:], fmt='%1.5e', delimiter=',')
 
 if __name__ == "__main__":
+    data_api = Data(32,'scalar',insert=[range(99)])
+    tags = data_api.stags[-150:,:]
+    model = AccuracyTest(tags)
+    ind,tags = model.insert(99)
+    cleanup(tags=tags,datafinder=data_api)
+    
     pass

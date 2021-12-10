@@ -272,11 +272,12 @@ def extract_scalar_feat_from_tag(tag):
     
     delta = lc.normed_flux -lc.normed_smooth_flux
     rms =  np.sqrt(np.mean(delta**2))
-    ############### 7 12 18
+    ############### 7 12 18 26
     feat = np.array([*tag,better_amp,med,mean,std,slope,r,skew,max_slope,\
     beyond1std, delta_quartiles, flux_mid_20,flux_mid_35, flux_mid_50, \
     flux_mid_65, flux_mid_80, cons, slope_trend, var_ind, med_abs_dev, \
-    H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width, StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms])
+    H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width,\
+    StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms])
 
     return feat.astype('float32')
 

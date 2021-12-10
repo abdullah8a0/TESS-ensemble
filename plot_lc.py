@@ -68,6 +68,29 @@ def plotter():
         rand_tags = np.copy(tags)
         print(tags.shape)
         shuffle(rand_tags)
+
+        stack: list[LC] = []
+        for i,tag in enumerate(rand_tags):
+            if 9*(len(rand_tags)//9)<=i:
+                print(tag)
+                LC(sector,*tag).remove_outliers().plot()
+            if i>0 and i%9 ==0:
+                fig, axs = plt.subplots(3, 3)
+                for j,lc in enumerate(stack):
+                    axs[j%3,j//3].scatter(lc.time,lc.flux,s=0.5)
+                    axs[j%3,j//3].set_title(f'{lc.cam} {lc.ccd} {lc.coords}')
+                #for ax in axs.flat:
+                #    ax.set(xlabel='x-label', ylabel='y-label')
+
+                    # Hide x labels and tick labels for top plots and y ticks for right plots.
+                for ax in axs.flat:
+                    ax.label_outer()
+                fig.show() 
+                plt.show()
+                stack = []
+            stack.append(LC(sector,*tag).remove_outliers())
+
+        return None
         for i,tag in enumerate(rand_tags):
 
             print((i,int(sector), *tag))
@@ -200,14 +223,25 @@ def label(sector):
             step.append((sector,*coords))
 
         fig.canvas.mpl_connect('pick_event', onpick)
+        mng = plt.get_current_fig_manager()
+        mng.frame.Maximize(True)
         plt.show()
     step = np.array(step).astype('int32')
     np.savetxt(Path(f'{sector}_step.csv'),step, fmt='%1d',delimiter =',')
 if __name__ == '__main__':
     #plotter()
-    label(32)
-    exit()
+    #label(32)
     #exit()
+    tags = [
+    (39, 4, 2, 556, 1699),
+    (39, 3, 4, 1754, 65),
+    (39, 3, 4, 1307, 257),
+    (39, 3, 4, 1936, 166),
+    (39, 3, 1, 1731, 1686)]
+    for tag in tags:
+        print(tag)
+        LC(*tag).remove_outliers().plot()
+    exit()
     #tag = 42,4,2,1581, 1521
     #tag = 43, 3, 2, 610, 574
     #tag = 43, 3, 2, 602, 553
