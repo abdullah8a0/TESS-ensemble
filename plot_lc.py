@@ -229,8 +229,14 @@ def label(sector):
     step = np.array(step).astype('int32')
     np.savetxt(Path(f'{sector}_step.csv'),step, fmt='%1d',delimiter =',')
 if __name__ == '__main__':
-    #plotter()
-    #label(32)
+    plotter()
+    exit()
+    tag = (45, 3, 4, 2041, 1979)
+    tag = (45, 2, 2, 600, 285)
+    tag = (40, 4, 1, 1786, 1373)
+    #tag = (44, 4, 2, 931, 1763)
+    #tag = (45, 3, 3, 1215, 506)
+    LC(*tag).plot().remove_outliers().plot()
     #exit()
     tags = [
     (39, 4, 2, 556, 1699),
@@ -238,6 +244,16 @@ if __name__ == '__main__':
     (39, 3, 4, 1307, 257),
     (39, 3, 4, 1936, 166),
     (39, 3, 1, 1731, 1686)]
+
+    tags = [
+        (43, 3, 4, 1836, 1634),
+        (45, 3, 2, 128, 662),
+        (45, 3, 3, 1193, 1746), #question, is this change in brightness interesting?
+        (45, 3, 1, 1008, 1266),
+    ]
+    #sector = 43
+    #data = Data(sector,'scalar')
+    #tags = data.stags
     for tag in tags:
         print(tag)
         LC(*tag).remove_outliers().plot()

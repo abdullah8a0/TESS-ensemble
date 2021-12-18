@@ -30,7 +30,7 @@ def get_sector_data(sectors,t,verbose=True):
         yield tags,data
 
 class Data: ### -> cam -1
-    def __init__(self,sector,default,insert = []) -> None:
+    def __init__(self,sector,default,insert = [],partial=True) -> None:
         self.sector = sector
         vec = get_sector_data(sector,'vector',verbose=False)
         scal = get_sector_data(sector,'scalar',verbose=False)
@@ -52,22 +52,16 @@ class Data: ### -> cam -1
         self.vectortran = np.genfromtxt( path /"T_vector.csv", delimiter=',')[::,5:]
         self.signattran = np.genfromtxt( path /"T_signat.csv", delimiter=',')[::,5:]
         ###################### Mask for testing
-        smask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
-        smask[5] = False
-        smask[8] = False
-        smask[11] = False
-        smask[13] = False
-        smask[14] = False
-        smask[16] = False
-        smask[20] = False
-        smask[24] = False
-        smask[25] = False
-        smask[28] = False
+        smask = np.array([True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True])
+        if partial:
+            l = [4,5,8,10,11,13,14,16,20,24,25,26,28,30,31] #try 2-mean 27-stetk 
+            smask[l] = False
         feat_names = 'better_amp,med,mean,std,slope,r,skew,max_slope,\
 beyond1std, delta_quartiles, flux_mid_20,flux_mid_35, flux_mid_50, \
 flux_mid_65, flux_mid_80, cons, slope_trend, var_ind, med_abs_dev, \
 H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width,\
 StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
+        self.feat_names = feat_names
         self.feat_names_filtered = [feat_names[ind] for ind,i in enumerate(smask) if i]
         vmask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
         signatmask = [True]*81

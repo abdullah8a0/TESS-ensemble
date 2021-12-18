@@ -226,7 +226,11 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
             if len(clus_count) == 1 and not suppress:
                 print(f'{size}, {samp}\t: No Clustering\n')
                 continue
-            ind = np.argpartition(np.array(clus_count), -2)[-2:]
+            try:
+                ind = np.argpartition(np.array(clus_count), -2)[-2:]
+            except ValueError:
+                print(f'{size}, {samp}\t: No Clustering\n')
+                continue
             for i in ind:
                 if i==0:
                     continue

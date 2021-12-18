@@ -10,13 +10,13 @@ import feature_extract
 
 ### settings you need to care about ### 
 
-sector = 39
+sector = 45
 #base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\"    #<- points to where the transient files are
 base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 #################
 
 
-
+# where does (39, 3, 4, 1754, 65) go?
 
 
 ##########  'None' asks for values while running

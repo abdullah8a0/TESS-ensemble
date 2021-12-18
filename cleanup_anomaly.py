@@ -9,7 +9,7 @@ import numpy as np
 # implement decision tree as forwarding
 
 def sec_isdirty(feat_s):
-    if feat_s[13] > 100:# and feat_s[-6]>1000:
+    if feat_s[11] > 100:# and feat_s[-6]>1000:
         return True
     #if feat_s[9] < 0.025:
     #    return True

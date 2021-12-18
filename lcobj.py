@@ -116,12 +116,12 @@ class LC(object):
             raise LCMissingDataError("The flux file has less than 60 entries")
 
         # Smoothing using SavGol Filter
-        try:
+        #try:
 
-            self.smooth_flux = signal.savgol_filter(self.flux,min((1|int(0.05*self.N),61)), 3)
-        except:
-            raise LCMissingDataError
-        self.linreg = stats.linregress(self.time,self.flux)[0:3]  #(slope,c,r)
+        #    self.smooth_flux = signal.savgol_filter(self.flux,min((1|int(0.05*self.N),61)), 3)
+        #except:
+        #    raise LCMissingDataError
+        #self.linreg = stats.linregress(self.time,self.flux)[0:3]  #(slope,c,r)
 
         self.is_padded = False
         self.is_FFT = False         # Flags whether the instance has these attributes
@@ -129,7 +129,7 @@ class LC(object):
 
         self.normed_flux : np.ndarray = (self.flux - min(self.flux))/(np.ptp(self.flux))
         self.normed_time : np.ndarray = (self.time-self.time[0])/np.ptp(self.time)
-        self.normed_smooth_flux : np.ndarray = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
+        #self.normed_smooth_flux : np.ndarray = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
 
     def plot(self, flux = None, time = None, show_bg = True, show_err = False,show_smooth=False,scatter=[]):
         flux = self.flux if flux is None else flux
@@ -156,32 +156,24 @@ class LC(object):
         return self
 
     def remove_outliers(self):
-        #outlier_detector = IsolationForest(n_estimators=200,max_samples=1000,random_state=np.random.RandomState(314),contamination=0.01)  # dynamic percentage?
-        #forest = outlier_detector.fit_predict(list(zip(self.normed_flux,self.normed_time)))
-        #inliers = np.ma.nonzero(forest==1)[0]
         
         #'''
         EPSILON = 0.02   
         time = self.normed_time
-        #time.resize(math.ceil(self.N/WIDTH)*WIDTH)
-        #time.reshape(math.ceil(self.N/WIDTH),WIDTH)
 
         flux = self.normed_flux
 
         groups : dict= {0:{0}}
 
-        #block = [p for p in zip(time[:WIDTH],flux[:WIDTH])]
         block = [(0,time[0],flux[0],0)] #(ind,t,f,g)
 
         for i,(t,f) in enumerate(zip(time[1:],flux[1:]),1):
             while block and abs(block[0][1]-t)>EPSILON:
                 block.pop(0)
             seen_groups =set()
-            #seen_points = set()
             for i_,t_,f_,g_ in block:
-                if abs(f_-f)>EPSILON:
+                if abs(f_-f)>2*EPSILON:
                     continue
-                #seen_points.add((t_,f_))
                 seen_groups.add(g_)
 
             if len(seen_groups)>1:  # combines groups 
@@ -219,9 +211,9 @@ class LC(object):
         else: 
             allowed = [top[0][0],top[1][0]]
             inliers = [ind for i in allowed for ind in groups[i]]
+        
         inliers = np.sort(np.array(inliers))
         
-        #'''
         self.flux        = self.flux[inliers]
         self.time        = self.time[inliers]
         self.error       = self.error[inliers]
@@ -232,7 +224,79 @@ class LC(object):
         self.median      = np.median(self.flux)
         self.normed_flux = (self.flux - min(self.flux))/(np.ptp(self.flux))
         self.normed_time = (self.time-self.time[0])/np.ptp(self.time)
+
+
+        #second
+
+        EPSILON = 0.02   
+        time = self.normed_time
+
+        flux = self.normed_flux
+
+        groups : dict= {0:{0}}
+
+        block = [(0,time[0],flux[0],0)] #(ind,t,f,g)
+
+        for i,(t,f) in enumerate(zip(time[1:],flux[1:]),1):
+            while block and abs(block[0][1]-t)>EPSILON:
+                block.pop(0)
+            seen_groups =set()
+            for i_,t_,f_,g_ in block:
+                if abs(f_-f)>2*EPSILON:
+                    continue
+                seen_groups.add(g_)
+
+            if len(seen_groups)>1:  # combines groups 
+                new = set()
+                for group in seen_groups:
+                    new |= groups[group]
+                    del groups[group]
+                new.add(i)
+                groups[min(seen_groups)] = new
+                block = [(ind,i,j,min(seen_groups) if ind in new else k) for ind,i,j,k in block]
+                tfgroup = min(seen_groups)
+            elif len(seen_groups) == 1:     # adds a to an existing group
+                tfgroup = min(seen_groups)
+                groups[tfgroup].add(i)
+            else:   # creates a new group
+                tfgroup = max(groups.keys())+1
+                groups[tfgroup] = set([i])
+
+            block.append((i,t,f,tfgroup))
         
+        inliers = []
+        top = [[0,0],[0,0],[0,0]]
+        for group,ind in groups.items():
+            if len(ind) > top[0][1]:
+                top = [[0,0],top[0],top[1]]
+                top[0] = [group,len(ind)]
+                continue
+            elif len(ind) > top[1][1]:
+                top = [top[0],[0,0],top[1]]
+                top[1] = [group,len(ind)]
+            elif len(ind) > top[2][1]:
+                top[2] = [group,len(ind)]
+        if top[2][1] > 0.2*top[1][1]:
+            inliers = [ind  for i,_ in top for ind in groups[i]]
+        else: 
+            allowed = [top[0][0],top[1][0]]
+            inliers = [ind for i in allowed for ind in groups[i]]
+        
+        inliers = np.sort(np.array(inliers))
+        
+        self.flux        = self.flux[inliers]
+        self.time        = self.time[inliers]
+        self.error       = self.error[inliers]
+        self.bg          = self.bg[inliers]
+        self.N           = inliers.size
+        self.mean        = np.mean(self.flux)
+        self.std         = np.std(self.flux)
+        self.median      = np.median(self.flux)
+        self.normed_flux = (self.flux - min(self.flux))/(np.ptp(self.flux))
+        self.normed_time = (self.time-self.time[0])/np.ptp(self.time)
+
+        #
+
         try: 
             self.smooth_flux = signal.savgol_filter(self.flux,min((1|int(0.05*self.N),61)), 3)
         except:
@@ -240,7 +304,9 @@ class LC(object):
 
         if self.N < 60:
             raise LCMissingDataError
-
+        
+        self.linreg = stats.linregress(self.time,self.flux)[0:3] 
+   
         self.normed_smooth_flux = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
         return self
     def make_percentiles(self):
@@ -376,6 +442,6 @@ def get_coords_from_path(file_path):
     y = file_path[d+1:]
     return (x,y)
 if __name__ == '__main__':
-    LC(32,-1,-1,68,690).remove_outliers().plot()
+    LC(32,-1,-1,68,690).plot().remove_outliers().plot()
     pass
     #set_base("C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\")                 # Change this to the folder where your sxx_transient_lcs is located

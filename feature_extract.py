@@ -1,3 +1,4 @@
+from matplotlib.pyplot import get
 import numpy as np
 import statsmodels.tsa.stattools as stattools
 import concurrent.futures
@@ -529,21 +530,16 @@ if __name__ == '__main__':
 
 
     pass
-    #get_transient_features()
-    extract_scalar_features(39)
-    extract_scalar_features(40)
-    extract_scalar_features(41)
-    extract_scalar_features(43)
-    extract_scalar_features(44)
-    #get_all(44)
-    exit()
-    #get_all(32)
-    exit()
+    get_transient_features()
+    
+    get_all(32)
     get_all(39)
     get_all(40)
     get_all(41)
     get_all(42)
     get_all(43)
+    get_all(44)
+    get_all(45)
     exit()
     extract_vector_features(38)
     extract_vector_features(32)
