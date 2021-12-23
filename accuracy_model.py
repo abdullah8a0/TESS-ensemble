@@ -184,9 +184,9 @@ class AccuracyTest:     # Generative vs Discriminative Model
         for tag in result_tags:
             try:
                 passed_tags.append(datafinder.lookup_tran(tag))
-                passed_tags = [i for i in passed_tags  if i in datafinder.ind[-1]] 
             except TagNotFound:
                 continue
+        passed_tags = [i for i in passed_tags  if i in datafinder.ind[-1]] 
         try:
             assert all(ind in np.concatenate(datafinder.ind).astype('int32') for ind in passed_tags)
         except AssertionError:
@@ -206,6 +206,7 @@ class AccuracyTest:     # Generative vs Discriminative Model
         for i in range(trials):
             print(f'Trial {i+1}/{trials} starting')
             ind,inserted_tags = self.insert(num,seed=None)
+
             data_api_model.update_insert(ind)
 
             result_tags = target(tags=inserted_tags,**kwargs)

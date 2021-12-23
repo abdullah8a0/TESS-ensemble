@@ -168,11 +168,10 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
     for i,tag in enumerate(tags):
         if with_sec:
             if tuple(tag)[1:] in tran:
-                labels[i] = 2.5
+                labels[i] = 2.5 if labels[i]==1 else 1.5
         else:
             if tuple(tag) in tran:
-                labels[i] = 2.5
-
+                labels[i] = 2.5 if labels[i]==1 else 1.5
     fig,ax = plt.subplots()
     data_tsne = TSNE(n_components=2).fit_transform(transformed_data)        ############# transformed or normed
     ax.scatter(data_tsne[:,0], data_tsne[:, 1], s = 10, picker=5, c= labels) 
@@ -204,7 +203,7 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
 def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =15,suppress=False ,metric = 'euclidean', write=True, verbose=False, vet_clus=False, model_persistence=False, training_sector=None):
 
     tag_finder = lcobj.TagFinder(tags)
-    data = datafinder.get_all(type='scalar')
+    data = datafinder.get_some(tags,type='scalar')
 
     transformed_data = scale_simplify(data,verbose,dim)
     if verbose and not suppress:
@@ -295,7 +294,7 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
     anomalies = [clusters[0]]
     
     ### FORWARD BYPASS
-    main_blob = tags[(main_blob_ind:=clusters[clus_count.index(max(clus_count))])]
+    main_blob = tags[(main_blob_ind:=clusters[clus_count.index(max(clus_count[1:]))])]
     model = AccuracyTest(main_blob)
     kwargs = {'data_api':datafinder}
     #input("Starting Forwarding test")

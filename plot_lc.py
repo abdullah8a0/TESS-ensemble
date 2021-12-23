@@ -53,7 +53,7 @@ def plotter():
             except OSError:
                 continue
             print(f'is_cleaned: {lc.iscleaned}')
-            lc.plot()
+            lc.plot().remove_outliers().plot()
 
     elif choice == '2':
         sector = input('file name: ')
@@ -176,7 +176,7 @@ def remove_outliers(self: LC):
         seen_groups =set()
         seen_points = set()
         for t_,f_,g_ in block:
-            if abs(f_-f)>EPSILON:
+            if abs(f_-f)>2*EPSILON:
                 continue
             seen_points.add((t_,f_))
             seen_groups.add(g_)
@@ -230,6 +230,33 @@ def label(sector):
     np.savetxt(Path(f'{sector}_step.csv'),step, fmt='%1d',delimiter =',')
 if __name__ == '__main__':
     plotter()
+    exit()
+    sector = 44
+    from accuracy_model import transient_tags
+    data = Data(sector,'scalar')
+
+    tags:np.ndarray = transient_tags
+    tags = data.stags
+    np.random.shuffle(tags)
+    for tag in tags:
+        lc = LC(sector,*tag)
+        lc.plot(show_bg=False)
+        groups = remove_outliers(lc)
+        for g in groups.values():
+            n = np.array(list(g))
+            plt.scatter(n[:,0],n[:,1])
+        plt.show()
+        
+        lc.remove_outliers_1().plot(show_bg=False)
+        
+        groups = remove_outliers(lc)
+        for g in groups.values():
+            n = np.array(list(g))
+            plt.scatter(n[:,0],n[:,1])
+        plt.show()
+        lc = LC(sector,*tag)
+        
+        lc.remove_outliers().plot(show_bg=False)
     exit()
     tag = (45, 3, 4, 2041, 1979)
     tag = (45, 2, 2, 600, 285)
@@ -289,16 +316,6 @@ if __name__ == '__main__':
     #tags = Data(43,'s').stags
     #tags = np.concatenate((43*np.ones((len(tags),1)),tags),axis = 1).astype('int32')
     #print(tags)
-    from accuracy_model import transient_tags
-    for tag in transient_tags:
-        lc = LC(32,*tag).plot(show_bg=False)
-        groups = remove_outliers(lc)
-        print(groups.keys())
-        for g in groups.values():
-            n = np.array(list(g))
-            plt.scatter(n[:,0],n[:,1])
-        plt.show()
-        lc.remove_outliers().plot(show_bg=False)
 
     exit()
     stack: list[LC] = []

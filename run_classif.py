@@ -10,7 +10,7 @@ import feature_extract
 
 ### settings you need to care about ### 
 
-sector = 45
+sector = 32
 #base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\"    #<- points to where the transient files are
 base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 #################
@@ -73,7 +73,13 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
         'model_persistence':model_persistence, 'training_sector':training_sector,'suppress':True}
 
     after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=99,trials =1, seed = 137 , **kwargs)
-
+    
+    if after_cluster.shape[0]>1000:
+        model = accuracy_model.AccuracyTest(after_cluster)
+        kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
+            'model_persistence':model_persistence, 'training_sector':training_sector,'suppress':True}
+        
+        after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=99,trials =1, seed = 137 , **kwargs)
     #RTS_clusters = None
     #HTP_clusters = None 
     #if tsne_individual_clusters:# para search after clean up

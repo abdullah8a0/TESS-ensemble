@@ -155,8 +155,93 @@ class LC(object):
         plt.show()
         return self
 
+    def remove_outliers_1(self):
+
+        EPSILON = 0.02   
+        time = self.normed_time
+
+        flux = self.normed_flux
+
+        groups : dict= {0:{0}}
+
+        block = [(0,time[0],flux[0],0)] #(ind,t,f,g)
+
+        for i,(t,f) in enumerate(zip(time[1:],flux[1:]),1):
+            while block and abs(block[0][1]-t)>EPSILON:
+                block.pop(0)
+            seen_groups =set()
+            for i_,t_,f_,g_ in block:
+                if abs(f_-f)>2*EPSILON:
+                    continue
+                seen_groups.add(g_)
+
+            if len(seen_groups)>1:  # combines groups 
+                new = set()
+                for group in seen_groups:
+                    new |= groups[group]
+                    del groups[group]
+                new.add(i)
+                groups[min(seen_groups)] = new
+                block = [(ind,i,j,min(seen_groups) if ind in new else k) for ind,i,j,k in block]
+                tfgroup = min(seen_groups)
+            elif len(seen_groups) == 1:     # adds a to an existing group
+                tfgroup = min(seen_groups)
+                groups[tfgroup].add(i)
+            else:   # creates a new group
+                tfgroup = max(groups.keys())+1
+                groups[tfgroup] = set([i])
+
+            block.append((i,t,f,tfgroup))
+        
+        inliers = []
+        top = [[0,0],[0,0],[0,0]]
+        for group,ind in groups.items():
+            if len(ind) > top[0][1]:
+                top = [[0,0],top[0],top[1]]
+                top[0] = [group,len(ind)]
+                continue
+            elif len(ind) > top[1][1]:
+                top = [top[0],[0,0],top[1]]
+                top[1] = [group,len(ind)]
+            elif len(ind) > top[2][1]:
+                top[2] = [group,len(ind)]
+        if top[2][1] > 0.2*top[1][1]:
+            inliers = [ind  for i,_ in top for ind in groups[i]]
+        else: 
+            allowed = [top[0][0],top[1][0]]
+            inliers = [ind for i in allowed for ind in groups[i]]
+        
+        inliers = np.sort(np.array(inliers))
+        
+        self.flux        = self.flux[inliers]
+        self.time        = self.time[inliers]
+        self.error       = self.error[inliers]
+        self.bg          = self.bg[inliers]
+        self.N           = inliers.size
+        self.mean        = np.mean(self.flux)
+        self.std         = np.std(self.flux)
+        self.median      = np.median(self.flux)
+        self.normed_flux = (self.flux - min(self.flux))/(np.ptp(self.flux))
+        self.normed_time = (self.time-self.time[0])/np.ptp(self.time)
+
+
+        try: 
+            self.smooth_flux = signal.savgol_filter(self.flux,min((1|int(0.05*self.N),61)), 3)
+        except:
+            raise LCMissingDataError
+
+        if self.N < 60:
+            raise LCMissingDataError
+        
+        self.linreg = stats.linregress(self.time,self.flux)[0:3] 
+   
+        self.normed_smooth_flux = (self.smooth_flux - min(self.smooth_flux))/np.ptp(self.smooth_flux)
+        return self
+        pass
+
     def remove_outliers(self):
         
+        self.cross_conflict = 0 # implement a measure of how much 
         #'''
         EPSILON = 0.02   
         time = self.normed_time
@@ -179,6 +264,7 @@ class LC(object):
             if len(seen_groups)>1:  # combines groups 
                 new = set()
                 for group in seen_groups:
+                    self.cross_conflict +=1 if len(groups[group]) > 10 else 0
                     new |= groups[group]
                     del groups[group]
                 new.add(i)
@@ -249,6 +335,7 @@ class LC(object):
             if len(seen_groups)>1:  # combines groups 
                 new = set()
                 for group in seen_groups:
+                    self.cross_conflict +=1 if len(groups[group]) > 10 else 0
                     new |= groups[group]
                     del groups[group]
                 new.add(i)
@@ -283,6 +370,7 @@ class LC(object):
             inliers = [ind for i in allowed for ind in groups[i]]
         
         inliers = np.sort(np.array(inliers))
+
         
         self.flux        = self.flux[inliers]
         self.time        = self.time[inliers]
