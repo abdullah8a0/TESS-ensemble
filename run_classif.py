@@ -10,7 +10,7 @@ import feature_extract
 
 ### settings you need to care about ### 
 
-sector = 32
+sector = 43
 #base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\"    #<- points to where the transient files are
 base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 #################
@@ -46,9 +46,9 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
     if not os.path.isfile(Path(f"Features/{sector2}_scalar.csv")):
         print('Generating scalar features')
         feature_extract.extract_scalar_features(sector)
-    if not os.path.isfile(Path(f"Features/{sector2}_vector.csv")):
-        print('Generating vector features')
-        feature_extract.extract_vector_features(sector)
+    #if not os.path.isfile(Path(f"Features/{sector2}_vector.csv")):
+    #    print('Generating vector features')
+    #    feature_extract.extract_vector_features(sector)
     if not os.path.isfile(Path(f"Features/{sector2}_signat.csv")):
         print('Generating signat features')
         feature_extract.extract_signat_features(sector)
@@ -70,14 +70,14 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
     #data_api.new_insert([])
 
     kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
-        'model_persistence':model_persistence, 'training_sector':training_sector,'suppress':True}
+        'training_sector':training_sector,'suppress':True,'score':blob_score}
 
     after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=99,trials =1, seed = 137 , **kwargs)
     
     if after_cluster.shape[0]>1000:
         model = accuracy_model.AccuracyTest(after_cluster)
         kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
-            'model_persistence':model_persistence, 'training_sector':training_sector,'suppress':True}
+             'training_sector':training_sector,'suppress':True,'score':struct_score,'forward':False}
         
         after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=99,trials =1, seed = 137 , **kwargs)
     #RTS_clusters = None
@@ -149,6 +149,27 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
         #    new_file.write(line)
         #print(len(lines))
         #new_file.close()
+
+def blob_score(anomalies,tags,**kwargs):
+    reduction = 1-sum(len(i) for i in anomalies)/tags.shape[0]
+    a,b ='*','.'
+    size,samp,clus_count = kwargs['size'],kwargs['samp'],kwargs['clus_count']
+    HIGH,LOW = 0.72,0.55
+    print(f'{size}, {samp}\t: {a if (HIGH>reduction>LOW) else b}\t{reduction}\n\t  {clus_count}')
+    if (HIGH>reduction>LOW):
+        print(f'{size}, {samp}\t: {a if (HIGH>reduction>LOW) else b}\t{reduction}\n\t  {clus_count}')
+        return True
+    return False
+
+def struct_score(anomalies,tags,**kwargs):
+    size,samp,clus_count = kwargs['size'],kwargs['samp'],kwargs['clus_count']
+    a,b ='*','.'
+    print(f'{size}, {samp}\t: {a if (len(clus_count)>7) else b} \n\t  {clus_count}')
+    if len(clus_count)>7:
+        print(f'{size}, {samp}\t: {a if (len(clus_count)>7) else b} \n\t  {clus_count}')
+        return True
+    return False
+
 
 if __name__ == '__main__':
 

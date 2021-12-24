@@ -20,14 +20,19 @@ def sec_isdirty(feat_s):
 
 
 def is_chatter(tag):
-    return False
     lc = lcobj.LC(*tag).remove_outliers()
-    delta = lc.flux -lc.smooth_flux
-    ret = (i:=stats.anderson(delta)[0])>5
-    if ret and tag[1]==-1:
-        print('chatter: ',tag,i)
+    #if ret and tag[1]==-1:
+    #    print('chatter: ',tag,i)
+    flux,time = lc.normed_flux,lc.time
+    L = len(flux)//50+1
+    slotted:np.ndarray = np.resize(flux,50*L)
+    slotted = slotted.reshape(L,50)
+    upper = np.amax(slotted,axis=1)
+    lower = np.amin(slotted,axis=1)
+    var = np.var(upper-lower)
 
-    return ret
+    return var>0.01367
+
 
 
 
@@ -134,9 +139,9 @@ def cleanup(tags=None,datafinder: Data=None,verbose=False):
 
     scalar_feat_anom = np.array([datafinder.get(tag,type='scalar') for tag in tags])
     scalar_feat_anom = datafinder.get_some(tags,type='scalar')
-    vector_feat_anom = np.array([datafinder.get(tag,type='vector') for tag in tags])
-    vector_feat_anom = datafinder.get_some(tags,type='vector')
-    data_in = ((feat_s,feat_v,tuple((datafinder.sector,*c))) for feat_s,feat_v,c in zip(scalar_feat_anom,vector_feat_anom,tags))
+    #vector_feat_anom = np.array([datafinder.get(tag,type='vector') for tag in tags])
+    #vector_feat_anom = datafinder.get_some(tags,type='vector')
+    data_in = ((feat_s,feat_v,tuple((datafinder.sector,*c))) for feat_s,feat_v,c in zip(scalar_feat_anom,[1]*len(tags),tags))
     
     
     

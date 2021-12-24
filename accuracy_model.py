@@ -19,9 +19,11 @@ with os.scandir(path / 'transient_lc') as entries:
 
 def get_sector_data(sectors,t,verbose=True):
     assert t in ('scalar','vector','signat')
-
     if not hasattr(sectors, '__iter__'):
         sectors = [sectors]       
+    if t=='vector':
+        for sec in sectors:
+            yield [],[]
 
     for sector in sectors:
         sector2 = str(sector) if int(sector) > 9 else '0'+str(sector)
@@ -63,12 +65,12 @@ H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width,\
 StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
         self.feat_names = feat_names
         self.feat_names_filtered = [feat_names[ind] for ind,i in enumerate(smask) if i]
-        vmask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
+        #vmask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
         signatmask = [True]*81
-        self.vdata = self.vdata[:,vmask]
+        #self.vdata = self.vdata[:,vmask]
         self.sdata = self.sdata[:,smask]
         self.signatdata = self.signatdata[:,signatmask]
-        self.vectortran = self.vectortran[:,vmask]
+        #self.vectortran = self.vectortran[:,vmask]
         self.scalartran = self.scalartran[:,smask]
         self.signattran = self.signattran[:,signatmask]
         #######################

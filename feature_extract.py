@@ -73,8 +73,8 @@ def extract_scalar_feat_from_tag(tag):
     # data points beyand 1std
 
     # Robust Kurtosis
-
-    sigmap = (np.sqrt(lc.N/(lc.N-1)))* (lc.flux - wmean)/lc.error #< - divide by zero err
+    min_err = np.where(lc.error > 0, lc.error, np.inf).argmin()
+    sigmap = (np.sqrt(lc.N/(lc.N-1)))* (lc.flux - wmean)/np.where(lc.error>0,lc.error,min_err) #< - divide by zero err
 
     StetK = (1 / np.sqrt(lc.N * 1.0) * np.sum(np.abs(sigmap)) / np.sqrt(np.sum(sigmap ** 2)))# <- invalid in double calar
 
@@ -517,7 +517,7 @@ def get_transient_features():
 
 def get_all(sector):
     extract_scalar_features(sector)
-    extract_vector_features(sector)
+    #extract_vector_features(sector)
     extract_signat_features(sector)
 
 if __name__ == '__main__':
@@ -530,16 +530,15 @@ if __name__ == '__main__':
 
 
     pass
-    get_transient_features()
     
-    get_all(32)
-    get_all(39)
-    get_all(40)
-    get_all(41)
-    get_all(42)
-    get_all(43)
-    get_all(44)
-    get_all(45)
+    get_all(30)
+    get_all(31)
+    get_all(33)
+    get_all(34)
+    get_all(35)
+    get_all(36)
+    get_all(37)
+    get_all(38)
     exit()
     extract_vector_features(38)
     extract_vector_features(32)

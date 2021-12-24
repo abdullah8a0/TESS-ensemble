@@ -200,7 +200,7 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
     plt.show()
     #input('Press Enter to continue\n')
 
-def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =15,suppress=False ,metric = 'euclidean', write=True, verbose=False, vet_clus=False, model_persistence=False, training_sector=None):
+def cluster_and_plot(tags:np.ndarray = [],datafinder : Data = None, score= lambda x:x, plot_flag = False,dim =15,suppress=False ,metric = 'euclidean', verbose=False, vet_clus=False, training_sector=None,forward=True):
 
     tag_finder = lcobj.TagFinder(tags)
     data = datafinder.get_some(tags,type='scalar')
@@ -210,7 +210,6 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
         print("---Dimesionality Reduced. Starting Cluster using HDBSCAN---")
     
     size_base,samp_base = 15,3
-    HIGH,LOW = 0.72,0.55
     br = False
     
     while not br:
@@ -219,7 +218,6 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
 
 
             ## ONLY FOR SCORING
-            labels = new_labels
             num_clus =  np.max(new_labels)
             clus_count = [np.count_nonzero(new_labels == i) for i in range(-1,1+num_clus)]
             if len(clus_count) == 1 and not suppress:
@@ -243,22 +241,18 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
                 predictor = IsolationForest(random_state=314,contamination=0.1)
                 forest = predictor.fit_predict(transformed_data[cluster])
                 anomalies.append(cluster[np.ma.nonzero(forest==-1)])
-            
-            reduction = 1-sum(len(i) for i in anomalies)/tags.shape[0]
-            a,b ='*','.'
-            if suppress:
-                print(f'{size}, {samp}\t: {a if (good:=(HIGH>reduction>LOW)) else b}\t{reduction}\n\t  {clus_count}')
-            if (HIGH>reduction>LOW):
-                if suppress:
-                    print(f'{size}, {samp}\t: {a if (good:=(HIGH>reduction>LOW)) else b}\t{reduction}\n\t  {clus_count}')
-                else:
-                    print(f'{size}, {samp}, {reduction}')
-                br = True
+
+            br = score(anomalies,tags,size=size, samp=samp,clus_count=clus_count)
+            if br:
                 break
 
 
         if not br:
-            lis =  [int(i) for i in input('Enter new center or choose from above: ').split(' ')]
+            inp = input('Enter new center or choose from above: ')
+            while not inp:
+                inp = input('Enter new center or choose from above: ')
+
+            lis =  [int(i) for i in inp.split(' ')]
             size_base, samp_base = lis[0],lis[1]
             if len(lis) == 3:
                 size,samp = size_base,samp_base
@@ -294,22 +288,23 @@ def cluster_and_plot(tags = [],datafinder : Data = None,plot_flag = False,dim =1
     anomalies = [clusters[0]]
     
     ### FORWARD BYPASS
-    main_blob = tags[(main_blob_ind:=clusters[clus_count.index(max(clus_count[1:]))])]
-    model = AccuracyTest(main_blob)
-    kwargs = {'data_api':datafinder}
-    #input("Starting Forwarding test")
-    forwards = model.test(data_api_model=datafinder,target=cluster_secondary.forwarding,p=0.04,trials=0,seed=137,**kwargs)
-    #input("Done, enter to continue")
-    #forwards = cluster_secondary.forwarding(main_blob,datafinder)
-    forwards_ind = np.array([tag_finder.find(tag) for tag in forwards])
-    forwards_data = transformed_data[forwards_ind]
+    if forward:
+        main_blob = tags[(main_blob_ind:=clusters[clus_count.index(max(clus_count[1:]))])]
+        model = AccuracyTest(main_blob)
+        kwargs = {'data_api':datafinder}
+        #input("Starting Forwarding test")
+        forwards = model.test(data_api_model=datafinder,target=cluster_secondary.forwarding,p=0.04,trials=0,seed=137,**kwargs)
+        #input("Done, enter to continue")
+        #forwards = cluster_secondary.forwarding(main_blob,datafinder)
+        forwards_ind = np.array([tag_finder.find(tag) for tag in forwards])
+        forwards_data = transformed_data[forwards_ind]
 
-    forest = IsolationForest(random_state=314,contamination=0.1,n_jobs=-1)
-    forest.fit(transformed_data[main_blob_ind])
-    score_ = forest.decision_function(forwards_data)
-    good_to_forward_ind = np.argpartition(-score_, -len(score_)//10)[-len(score_)//10:]
+        forest = IsolationForest(random_state=314,contamination=0.1,n_jobs=-1)
+        forest.fit(transformed_data[main_blob_ind])
+        score_ = forest.decision_function(forwards_data)
+        good_to_forward_ind = np.argpartition(-score_, -len(score_)//10)[-len(score_)//10:]
 
-    anomalies.append(forwards_ind[good_to_forward_ind])
+        anomalies.append(forwards_ind[good_to_forward_ind])
 
     ### END FORWARDING
 
