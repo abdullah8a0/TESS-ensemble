@@ -229,7 +229,14 @@ def label(sector):
     step = np.array(step).astype('int32')
     np.savetxt(Path(f'{sector}_step.csv'),step, fmt='%1d',delimiter =',')
 if __name__ == '__main__':
-    plotter()
+    tags =[ 
+    (3, 3, 1479, 2003),
+    (3, 4, 1575, 36),
+(3, 4, 1217, 223),
+    ]
+    for tag in tags:
+        LC(45,*tag).plot().remove_outliers().plot()
+    #plotter()
     exit()
     sector = 44
     from accuracy_model import transient_tags

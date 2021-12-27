@@ -1,4 +1,6 @@
 from typing import Sequence
+
+from numpy import ma
 from accuracy_model import AccuracyTest, Data
 import cluster_secondary 
 import umap
@@ -173,7 +175,7 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
             if tuple(tag) in tran:
                 labels[i] = 2.5 if labels[i]==1 else 1.5
     fig,ax = plt.subplots()
-    data_tsne = TSNE(n_components=2).fit_transform(transformed_data)        ############# transformed or normed
+    data_tsne = TSNE(n_components=2,n_iter=1200).fit_transform(transformed_data)        ############# transformed or normed
     ax.scatter(data_tsne[:,0], data_tsne[:, 1], s = 10, picker=5, c= labels) 
     
     def onpick(event):
@@ -200,7 +202,7 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
     plt.show()
     #input('Press Enter to continue\n')
 
-def cluster_and_plot(tags:np.ndarray = [],datafinder : Data = None, score= lambda x:x, plot_flag = False,dim =15,suppress=False ,metric = 'euclidean', verbose=False, vet_clus=False, training_sector=None,forward=True):
+def cluster_and_plot(tags:np.ndarray = [],datafinder : Data = None, score= lambda x:x, plot_flag = False,dim =15,suppress=False ,metric = 'euclidean', verbose=False, vet_clus=False, training_sector=None,forward=True,return_main=False):
 
     tag_finder = lcobj.TagFinder(tags)
     data = datafinder.get_some(tags,type='scalar')
@@ -323,7 +325,8 @@ def cluster_and_plot(tags:np.ndarray = [],datafinder : Data = None, score= lambd
     if not suppress:
         print(f'Data reduction: {round(100-100*sum(len(x) for x in anomalies)/(len(tags)),1)}%')
 
-
+    if return_main:
+        return main_blob
 #    if vet_clus:
 #        for i in range(num_clus+2):
 #            print(f"-- Showing cluster {i-1} --")

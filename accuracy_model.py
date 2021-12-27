@@ -14,16 +14,19 @@ with os.scandir(path / 'transient_lc') as entries:
             tag = (-1,-1,*map(int,get_coords_from_path(entry.name)))
             transient_tags.append(tag)
 
+
+#to_names_map = {0: 'better_amp', 1: 'med', 2: 'mean', 3: 'std', 4: 'skew', 5: 'max_slope', 6: 'delta_quartiles', 7: 'flux_mid_50', 8: 'cons', 9: 'var_ind', 10: 'med_abs_dev', 11: 'H1', 12: 'R31', 13: 'Rcs', 14: 'l', 15: 'StetK', 16: 'days_of_i', 17: 'rms'}
+#to_index_map = {'better_amp': 0, 'med': 1, 'mean': 2, 'std': 3, 'skew': 4, 'max_slope': 5, 'delta_quartiles': 6, 'flux_mid_50': 7, 'cons': 8, 'var_ind': 9, 'med_abs_dev': 10, 'H1': 11, 'R31': 12, 'Rcs': 13, 'l': 14, 'StetK': 15, 'days_of_i': 16, 'rms': 17}
+
+to_names_map = {0: 'better_amp', 1: 'med', 2: 'mean', 3: 'std', 4: 'slope', 5: 'r', 6: 'skew', 7: 'max_slope', 8: 'beyond1std', 9: 'delta_quartiles', 10: 'flux_mid_20', 11: 'flux_mid_35', 12: 'flux_mid_50', 13: 'flux_mid_65', 14: 'flux_mid_80', 15: 'cons', 16: 'slope_trend', 17: 'var_ind', 18: 'med_abs_dev', 19: 'H1', 20: 'R21', 21: 'R31', 22: 'Rcs', 23: 'l', 24: 'med_buffer_ran', 25: 'perr', 26: 'band_width', 27: 'StetK', 28: 'p_ander', 29: 'days_of_i', 30: 'slope_trend_start', 31: 'slope_trend_end', 32: 'rms'}
+to_index_map = {'better_amp': 0, 'med': 1, 'mean': 2, 'std': 3, 'slope': 4, 'r': 5, 'skew': 6, 'max_slope': 7, 'beyond1std': 8, 'delta_quartiles': 9, 'flux_mid_20': 10, 'flux_mid_35': 11, 'flux_mid_50': 12, 'flux_mid_65': 13, 'flux_mid_80': 14, 'cons': 15, 'slope_trend': 16, 'var_ind': 17, 'med_abs_dev': 18, 'H1': 19, 'R21': 20, 'R31': 21, 'Rcs': 22, 'l': 23, 'med_buffer_ran': 24, 'perr': 25, 'band_width': 26, 'StetK': 27, 'p_ander': 28, 'days_of_i': 29, 'slope_trend_start': 30, 'slope_trend_end': 31, 'rms': 32}
 #generated_transients = {}
 # Remove transients from Renamer insertions.
 
 def get_sector_data(sectors,t,verbose=True):
-    assert t in ('scalar','vector','signat')
+    assert t in ('scalar','signat')
     if not hasattr(sectors, '__iter__'):
         sectors = [sectors]       
-    if t=='vector':
-        for sec in sectors:
-            yield [],[]
 
     for sector in sectors:
         sector2 = str(sector) if int(sector) > 9 else '0'+str(sector)
@@ -34,14 +37,11 @@ def get_sector_data(sectors,t,verbose=True):
 class Data: ### -> cam -1
     def __init__(self,sector,default,insert = [],partial=True) -> None:
         self.sector = sector
-        vec = get_sector_data(sector,'vector',verbose=False)
         scal = get_sector_data(sector,'scalar',verbose=False)
         sign = get_sector_data(sector, 'signat', verbose=False)
-        self.vtags, self.vdata = next(vec)
         self.stags,self.sdata = next(scal)
         self.signattags,self.signatdata = next(sign)
         self.tagfindscalar = TagFinder(self.stags)
-        self.tagfindvector = TagFinder(self.vtags)
         self.tagfindsignat = TagFinder(self.signattags)
         self.transientfind = TagFinder(transient_tags)
         self.default_type = default
@@ -51,7 +51,6 @@ class Data: ### -> cam -1
         #########################################
 
         self.scalartran = np.genfromtxt( path /"T_scalar.csv", delimiter=',')[::,5:]
-        self.vectortran = np.genfromtxt( path /"T_vector.csv", delimiter=',')[::,5:]
         self.signattran = np.genfromtxt( path /"T_signat.csv", delimiter=',')[::,5:]
         ###################### Mask for testing
         smask = np.array([True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True])
@@ -59,20 +58,20 @@ class Data: ### -> cam -1
             l = [4,5,8,10,11,13,14,16,20,24,25,26,28,30,31] #try 2-mean 27-stetk 
             smask[l] = False
         feat_names = 'better_amp,med,mean,std,slope,r,skew,max_slope,\
-beyond1std, delta_quartiles, flux_mid_20,flux_mid_35, flux_mid_50, \
-flux_mid_65, flux_mid_80, cons, slope_trend, var_ind, med_abs_dev, \
-H1, R21, R31, Rcs, l , med_buffer_ran, np.log(1/(1-perr)),band_width,\
-StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
+beyond1std,delta_quartiles,flux_mid_20,flux_mid_35,flux_mid_50,\
+flux_mid_65,flux_mid_80,cons,slope_trend,var_ind,med_abs_dev,\
+H1,R21,R31,Rcs,l,med_buffer_ran,perr,band_width,\
+StetK,p_ander,days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
         self.feat_names = feat_names
         self.feat_names_filtered = [feat_names[ind] for ind,i in enumerate(smask) if i]
-        #vmask = [True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True]
         signatmask = [True]*81
-        #self.vdata = self.vdata[:,vmask]
         self.sdata = self.sdata[:,smask]
         self.signatdata = self.signatdata[:,signatmask]
-        #self.vectortran = self.vectortran[:,vmask]
         self.scalartran = self.scalartran[:,smask]
         self.signattran = self.signattran[:,signatmask]
+
+        self.names = dict((i for i in enumerate(self.feat_names_filtered)))
+        self.feat_ind = dict(((i[1],i[0]) for i in enumerate(self.feat_names_filtered)))
         #######################
     
     def update_insert(self,insert):
@@ -103,12 +102,6 @@ StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
                     return self.scalartran[ind]
                 else:
                     raise Exception('Data Finder tried to access a tag the it was not allowed to')
-            elif type == 'vector':
-                ind = self.transientfind.find(tag)
-                if ind in np.concatenate(self.ind).astype('int32'):
-                    return self.vectortran[ind]
-                else:
-                    raise Exception('Data Finder tried to access a tag the it was not allowed to')
             elif type == 'signat':
                 ind = self.transientfind.find(tag)
                 if ind in np.concatenate(self.ind).astype('int32'):
@@ -121,8 +114,6 @@ StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
         try:
             if type == 'scalar':
                 return self.sdata[self.tagfindscalar.find(tag)]
-            elif type == 'vector':
-                return self.vdata[self.tagfindvector.find(tag)]
             elif type == 'signat':
                 return self.signatdata[self.tagfindsignat.find(tag)]
             else:
@@ -137,14 +128,6 @@ StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
             sector_data = self.sdata
             if self.ind !=[]:
                 tran_data = self.scalartran[np.concatenate(self.ind).astype('int32')]##### get transient data ###
-            else:
-                tran_data = []
-            ret = np.concatenate((sector_data,tran_data)) if len(self.ind) != 0 else sector_data
-            return ret
-        elif type == 'vector':
-            sector_data = self.vdata
-            if self.ind !=[]:
-                tran_data = self.vectortran[np.concatenate(self.ind).astype('int32')]##### get transient data ###
             else:
                 tran_data = []
             ret = np.concatenate((sector_data,tran_data)) if len(self.ind) != 0 else sector_data
@@ -165,7 +148,7 @@ StetK, p_ander, days_of_i,slope_trend_start,slope_trend_end,rms'.split(',')
         try:
             return np.array([self.get(tag,type=type) for tag in tags])
         except TagNotFound:
-            print('Tag not in sector')
+            raise IndexError('Tag not in sector')
 
     
 
@@ -242,8 +225,10 @@ class AccuracyTest:     # Generative vs Discriminative Model
 
 
 if __name__ == '__main__':
-    data = Data(32,'scalar')
-    print(dict((i for i in enumerate(data.feat_names_filtered))))
+    data = Data(32,'scalar',partial=False)
+    print(data.names)
+    print(data.feat_ind)
+
     exit()
     print(len(transient_tags))
     data = Data(43,'s')

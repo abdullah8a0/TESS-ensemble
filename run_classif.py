@@ -10,7 +10,7 @@ import feature_extract
 
 ### settings you need to care about ### 
 
-sector = 43
+sector = 32
 #base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\"    #<- points to where the transient files are
 base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 #################
@@ -25,7 +25,7 @@ base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 training_sector = None 
 model_persistence = False
 show_TOI = False
-plot_tsne = True
+plot_tsne = False
 tsne_results = True
 tsne_individual_clusters = False    # Set to true to find effects
 vet_results = False
@@ -60,14 +60,8 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
     
     before_tags = data_api.stags
     model = accuracy_model.AccuracyTest(before_tags)
-    #ind,inserted_tags = model.insert(15)
-    #data_api.new_insert(ind)
-    
-    #after_cluster = cluster_anomaly.cluster_and_plot(tags= inserted_tags,datafinder = data_api, verbose=verbose,plot_flag=plot_tsne, vet_clus = tsne_individual_clusters,model_persistence=model_persistence, training_sector=training_sector)
-    
-    #model.measure(data_api,after_cluster)
-    #after_cluster = model.clean(after_cluster)
-    #data_api.new_insert([])
+
+
 
     kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
         'training_sector':training_sector,'suppress':True,'score':blob_score}
@@ -80,12 +74,14 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
              'training_sector':training_sector,'suppress':True,'score':struct_score,'forward':False}
         
         after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=99,trials =1, seed = 137 , **kwargs)
+    
+    
+    
     #RTS_clusters = None
     #HTP_clusters = None 
     #if tsne_individual_clusters:# para search after clean up
     #    RTS_clusters = input("Which cluster labels correspond to RTS? ").split()
     #    HTP_clusters = input("Which cluster labels correspond to hot pixels? ").split()
-    
     
     #effect_detection.find_effects(sector)
     model = accuracy_model.AccuracyTest(after_cluster) 

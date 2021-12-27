@@ -9,19 +9,6 @@ import cluster_anomaly
 from sklearn.mixture import GaussianMixture
 from pathlib import Path
 
-
-def w_metric(vec1,vec2):
-    m1,r1 = vec1[::2],vec1[1::2]
-    m2,r2 = vec2[::2],vec2[1::2]
-    m1 = np.arctan(m1)
-    m2 = np.arctan(m2)
-    return sum(np.sqrt(np.abs(r1-r2)*(m1-m2)**2))
-
-def sim_score(sig1, sig2):
-    return max(sum(sig1),sum(sig2)) -  np.max(np.convolve(sig1,sig2))
-
-
-
 def func(tag):
     lc = lcobj.LC(*tag).remove_outliers()
     granularity = 1.0/3           # In days
@@ -88,7 +75,6 @@ def cluster_secondary_run(sector,verbose=False):
 
 def forwarding(tags,data_api: Data = None,verbose=False):
     datafinder = data_api
-    tags_without_sector = tags
     #tagsfinder = lcobj.TagFinder(tags)
     #sector = datafinder.sector
     #tags = np.concatenate((sector*np.ones(len(tags)).reshape(len(tags),1),tags),axis=1).astype('int32')
@@ -104,6 +90,7 @@ def forwarding(tags,data_api: Data = None,verbose=False):
     #data = np.array(data).astype('int32')
     #shuffled_tags,signat = data[:,:5],data[:,5:]
     data = datafinder.get_some(tags=tags,type = 'signat')
+    sdata = datafinder.get_some(tags=tags,type='scalar')
     longs = np.zeros(data.shape[0]).reshape(-1,1)
     short = np.zeros(data.shape[0]).reshape(-1,1)
     cons = np.zeros(data.shape[0]).reshape(-1,1)
@@ -115,14 +102,17 @@ def forwarding(tags,data_api: Data = None,verbose=False):
         short = np.where(cons==1,short + cons,short)
         longs = np.where(cons==3,longs+slice,longs)
 
-    #print(longs)
-    #print(short)
     short = (short - longs).reshape(1,-1)[0]
     longs = longs.reshape(1,-1)[0]
 
     to_forward = np.logical_and(np.logical_and(longs<3,longs>0),short<2)
-    #include iso forest 
-    return np.array([tags_without_sector[forwarded_ind] for forwarded_ind in np.ma.nonzero(to_forward)[0]])
+
+    #h1_feat = sdata[:,datafinder.feat_ind['H1']]
+
+    #to_forward = np.logical_or(to_forward,h1_feat<=95)
+
+
+    return tags[np.ma.nonzero(to_forward)[0]]
 
 
 
