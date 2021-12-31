@@ -56,19 +56,9 @@ def vet_clusters(sector, tags, feat_data, clus_ind,processed = None):
     tsne_plot(sector,tags,transformed_data,labels)
     
 def hdbscan_cluster(transformed_data,training_sector, min_size,min_samp,metric,epsilon=0):
-
-
-    #Clustering start
-
-
-
         clusterer = hdbscan.HDBSCAN(min_cluster_size=min_size,cluster_selection_epsilon=epsilon ,min_samples=min_samp,metric=metric,prediction_data=True)       # BEST is 15,12 cluster size, 19 previous, 7 prev, 8 WORKS
         clusterer.fit(transformed_data)
         return clusterer,clusterer.labels_
-        
-        #with open(Path(f"Pickled/{training_sector}.p"),'rb') as file:
-        #    clusterer = load(file)
-        #return clusterer,hdbscan.approximate_predict(clusterer,transformed_data)[0]
 
 import accuracy_model
 def umap_plot(sector,tags,transformed_data,labels,TOI:Data=None,normalized=True,with_sec=False):
