@@ -62,14 +62,13 @@ def hdbscan_cluster(transformed_data,training_sector, min_size,min_samp,metric,e
 
 
 
-    if training_sector is None:
         clusterer = hdbscan.HDBSCAN(min_cluster_size=min_size,cluster_selection_epsilon=epsilon ,min_samples=min_samp,metric=metric,prediction_data=True)       # BEST is 15,12 cluster size, 19 previous, 7 prev, 8 WORKS
         clusterer.fit(transformed_data)
         return clusterer,clusterer.labels_
-    else:
-        with open(Path(f"Pickled/{training_sector}.p"),'rb') as file:
-            clusterer = load(file)
-        return clusterer,hdbscan.approximate_predict(clusterer,transformed_data)[0]
+        
+        #with open(Path(f"Pickled/{training_sector}.p"),'rb') as file:
+        #    clusterer = load(file)
+        #return clusterer,hdbscan.approximate_predict(clusterer,transformed_data)[0]
 
 import accuracy_model
 def umap_plot(sector,tags,transformed_data,labels,TOI:Data=None,normalized=True,with_sec=False):
@@ -202,7 +201,7 @@ def tsne_plot(sector,tags,transformed_data,labels,normalized=True,with_sec=False
     plt.show()
     #input('Press Enter to continue\n')
 
-def cluster_and_plot(tags:np.ndarray = [],datafinder : Data = None, score= lambda x:x, plot_flag = False,dim =15,suppress=False ,metric = 'euclidean', verbose=False, vet_clus=False, training_sector=None,forward=True,return_main=False):
+def cluster_and_plot(tags:np.ndarray = [],size=None,samp=None,datafinder : Data = None, score= lambda x:x, plot_flag = False,dim =15,suppress=False ,metric = 'euclidean', verbose=False, vet_clus=False, training_sector=None,forward=True,return_main=False):
 
     tag_finder = lcobj.TagFinder(tags)
     data = datafinder.get_some(tags,type='scalar')
@@ -211,9 +210,12 @@ def cluster_and_plot(tags:np.ndarray = [],datafinder : Data = None, score= lambd
     if verbose and not suppress:
         print("---Dimesionality Reduced. Starting Cluster using HDBSCAN---")
     
-    size_base,samp_base = 15,3
-    br = False
-    
+    if size is None:
+        size_base,samp_base = 15,3
+        br = False
+    else:
+        print(f"Parameters preset: {size}, {samp}")
+        br=True 
     while not br:
         for size,samp in [(i,j) for i in range(size_base-3,size_base+3) for j in range(samp_base-3,samp_base+3) if i > 0 and j>0]:
             clusterer,new_labels = hdbscan_cluster(transformed_data,training_sector,size,samp,metric)
@@ -276,9 +278,8 @@ def cluster_and_plot(tags:np.ndarray = [],datafinder : Data = None, score= lambd
     
 
 
-    if verbose and not suppress:
-        print("Number of cluster:",num_clus+1)
-        print(clus_count)
+    print("Number of cluster:",num_clus+1)
+    print(clus_count)
 
     #if model_persistence:
     #    with open(Path(f"Pickled/{sector}.p"),'wb') as file:

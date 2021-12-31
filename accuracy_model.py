@@ -15,9 +15,8 @@ with os.scandir(path / 'transient_lc') as entries:
             transient_tags.append(tag)
 
 
-#to_names_map = {0: 'better_amp', 1: 'med', 2: 'mean', 3: 'std', 4: 'skew', 5: 'max_slope', 6: 'delta_quartiles', 7: 'flux_mid_50', 8: 'cons', 9: 'var_ind', 10: 'med_abs_dev', 11: 'H1', 12: 'R31', 13: 'Rcs', 14: 'l', 15: 'StetK', 16: 'days_of_i', 17: 'rms'}
-#to_index_map = {'better_amp': 0, 'med': 1, 'mean': 2, 'std': 3, 'skew': 4, 'max_slope': 5, 'delta_quartiles': 6, 'flux_mid_50': 7, 'cons': 8, 'var_ind': 9, 'med_abs_dev': 10, 'H1': 11, 'R31': 12, 'Rcs': 13, 'l': 14, 'StetK': 15, 'days_of_i': 16, 'rms': 17}
-
+to_names_map_partial = {0: 'better_amp', 1: 'med', 2: 'mean', 3: 'std', 4: 'skew', 5: 'max_slope', 6: 'delta_quartiles', 7: 'flux_mid_50', 8: 'cons', 9: 'var_ind', 10: 'med_abs_dev', 11: 'R31', 12: 'Rcs', 13: 'l', 14: 'StetK', 15: 'days_of_i', 16: 'rms'}
+to_index_map_partial = {'better_amp': 0, 'med': 1, 'mean': 2, 'std': 3, 'skew': 4, 'max_slope': 5, 'delta_quartiles': 6, 'flux_mid_50': 7, 'cons': 8, 'var_ind': 9, 'med_abs_dev': 10, 'R31': 11, 'Rcs': 12, 'l': 13, 'StetK': 14, 'days_of_i': 15, 'rms': 16}
 to_names_map = {0: 'better_amp', 1: 'med', 2: 'mean', 3: 'std', 4: 'slope', 5: 'r', 6: 'skew', 7: 'max_slope', 8: 'beyond1std', 9: 'delta_quartiles', 10: 'flux_mid_20', 11: 'flux_mid_35', 12: 'flux_mid_50', 13: 'flux_mid_65', 14: 'flux_mid_80', 15: 'cons', 16: 'slope_trend', 17: 'var_ind', 18: 'med_abs_dev', 19: 'H1', 20: 'R21', 21: 'R31', 22: 'Rcs', 23: 'l', 24: 'med_buffer_ran', 25: 'perr', 26: 'band_width', 27: 'StetK', 28: 'p_ander', 29: 'days_of_i', 30: 'slope_trend_start', 31: 'slope_trend_end', 32: 'rms'}
 to_index_map = {'better_amp': 0, 'med': 1, 'mean': 2, 'std': 3, 'slope': 4, 'r': 5, 'skew': 6, 'max_slope': 7, 'beyond1std': 8, 'delta_quartiles': 9, 'flux_mid_20': 10, 'flux_mid_35': 11, 'flux_mid_50': 12, 'flux_mid_65': 13, 'flux_mid_80': 14, 'cons': 15, 'slope_trend': 16, 'var_ind': 17, 'med_abs_dev': 18, 'H1': 19, 'R21': 20, 'R31': 21, 'Rcs': 22, 'l': 23, 'med_buffer_ran': 24, 'perr': 25, 'band_width': 26, 'StetK': 27, 'p_ander': 28, 'days_of_i': 29, 'slope_trend_start': 30, 'slope_trend_end': 31, 'rms': 32}
 #generated_transients = {}
@@ -55,7 +54,7 @@ class Data: ### -> cam -1
         ###################### Mask for testing
         smask = np.array([True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True,True])
         if partial:
-            l = [4,5,8,10,11,13,14,16,20,24,25,26,28,30,31] #try 2-mean 27-stetk 
+            l = [4,5,8,10,11,13,14,16,19,20,24,25,26,28,30,31] #try 2-mean 27-stetk 
             smask[l] = False
         feat_names = 'better_amp,med,mean,std,slope,r,skew,max_slope,\
 beyond1std,delta_quartiles,flux_mid_20,flux_mid_35,flux_mid_50,\
@@ -225,7 +224,7 @@ class AccuracyTest:     # Generative vs Discriminative Model
 
 
 if __name__ == '__main__':
-    data = Data(32,'scalar',partial=False)
+    data = Data(32,'scalar',partial=True)
     print(data.names)
     print(data.feat_ind)
 

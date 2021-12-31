@@ -20,7 +20,7 @@ def gen_path(sector,cam,ccd,col,row):
     file_name = 'lc_'+str(col)+'.'+str(row)
     cam,ccd,col,row = str(cam),str(ccd),str(col),str(row)
 
-    if -1 in {int(cam),int(ccd),int(sector)} :
+    if -1 in [int(cam),int(ccd),int(sector)] :
         return Path(f'/Users/abdullah/Desktop/UROP/Tess/local_code/py_code/transient_data/transient_lc/lc_{col}.{row}')
         
 

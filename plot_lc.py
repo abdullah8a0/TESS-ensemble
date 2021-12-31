@@ -229,13 +229,30 @@ def label(sector):
     step = np.array(step).astype('int32')
     np.savetxt(Path(f'{sector}_step.csv'),step, fmt='%1d',delimiter =',')
 if __name__ == '__main__':
+    plotter()
+    exit()
     tags =[ 
-    (3, 3, 1479, 2003),
-    (3, 4, 1575, 36),
-(3, 4, 1217, 223),
+    (45, 2, 4, 161, 694),
+    (45, 3, 3, 1479, 2003),
+    (45, 3, 3, 1215, 506),
+    #(45, 3, 4, 1575, 36),
+    #(45, 3, 4, 1217, 223),
+    (32, 4, 1, 2045, 348),
+    (33, 1, 4, 1862, 457),
     ]
     for tag in tags:
-        LC(45,*tag).plot().remove_outliers().plot()
+        lc = LC(*tag).plot().remove_outliers().plot()
+
+        lc.pad_flux() 
+        lc.make_FFT()
+
+        freq, pow  = lc.fft_freq
+
+        best_fit_fft = lc.significant_fequencies
+        z_score = (best_fit_fft[:,1]-np.mean(pow))/np.std(pow)
+
+        H1 = best_fit_fft[0][1] # Maybe amplitude is meaningless?
+        print(H1)
     #plotter()
     exit()
     sector = 44

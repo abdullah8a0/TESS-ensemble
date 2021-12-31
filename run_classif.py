@@ -68,7 +68,7 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
 
     after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=99,trials =1, seed = 137 , **kwargs)
     
-    if after_cluster.shape[0]>1000:
+    while after_cluster.shape[0]>900:
         model = accuracy_model.AccuracyTest(after_cluster)
         kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
              'training_sector':training_sector,'suppress':True,'score':struct_score,'forward':False}
@@ -84,6 +84,7 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
     #    HTP_clusters = input("Which cluster labels correspond to hot pixels? ").split()
     
     #effect_detection.find_effects(sector)
+    data_api = accuracy_model.Data(sector,default='scalar',partial=False)
     model = accuracy_model.AccuracyTest(after_cluster) 
     kwargs = {'datafinder':data_api,'verbose': verbose}
     cleaned_tags = model.test(data_api_model=data_api,target=cleanup_anomaly.cleanup,num=50,trials=1,seed=137,**kwargs)
@@ -154,16 +155,16 @@ def blob_score(anomalies,tags,**kwargs):
     print(f'{size}, {samp}\t: {a if (HIGH>reduction>LOW) else b}\t{reduction}\n\t  {clus_count}')
     if (HIGH>reduction>LOW):
         print(f'{size}, {samp}\t: {a if (HIGH>reduction>LOW) else b}\t{reduction}\n\t  {clus_count}')
-        return True
+        #return True
     return False
 
 def struct_score(anomalies,tags,**kwargs):
     size,samp,clus_count = kwargs['size'],kwargs['samp'],kwargs['clus_count']
     a,b ='*','.'
     print(f'{size}, {samp}\t: {a if (len(clus_count)>7) else b} \n\t  {clus_count}')
-    if len(clus_count)>7:
+    if len(clus_count)>100:
         print(f'{size}, {samp}\t: {a if (len(clus_count)>7) else b} \n\t  {clus_count}')
-        return True
+        #return True
     return False
 
 

@@ -3,7 +3,7 @@ from pathlib import Path
 from matplotlib import rcParams
 from scipy import stats
 from scipy.sparse import construct
-from accuracy_model import AccuracyTest, Data, to_index_map
+from accuracy_model import AccuracyTest, Data, to_index_map_partial, to_index_map 
 import lcobj
 import numpy as np
 
@@ -11,8 +11,8 @@ import numpy as np
 # implement decision tree as forwarding
 
 def sec_isdirty(feat_s):
-    #if feat_s[to_index_map['H1']] > 100:# and feat_s[-6]>1000:
-    #    return True
+    if feat_s[to_index_map['H1']] > 120:# and feat_s[-6]>1000:
+        return True
      
     return False#find score at the end
 
@@ -31,36 +31,36 @@ def discriminative_scalar_tree(sfeat):
     stetk       = sfeat[to_index_map["StetK"]]
 
 
-    if skew< -1.2:
-        votes -=1
-    elif skew<0:
-        votes -= 0.5
-    elif skew<1:
-        votes +=1
-    elif votes<2.5:
-        votes +=1.5
-    else:
-        votes -=0.5
+    #if skew< -1.2:
+    #    votes -=5
+    #elif skew<0:
+    #    votes -= 3
+    #elif skew<1:
+    #    votes +=1
+    #elif votes<2.5:
+    #    votes +=1.5
+    #else:
+    #    votes -=3
 
 
     if max_slope>3.5e+6:
-        votes -=1
+        votes -=10
     elif max_slope>1.8e+6:
-        votes += 0.5
+        votes += 1
     elif max_slope>1.0e+6:
-        votes +=1
+        votes +=1.5
     else:
         votes += 0
 
     
-    if flux_50>0.42:
-        votes +=1.5
-    elif flux_50>0.37:
-        votes += 1
-    elif flux_50>0.3:
-        votes += 0
-    else:
-        votes -= 0.5
+    #if flux_50>0.42:
+    #    votes +=1.5
+    #elif flux_50>0.37:
+    #    votes += 1
+    #elif flux_50>0.3:
+    #    votes += 0
+    #else:
+    #    votes -= 3
 
 
     if cons>0.028:
@@ -70,21 +70,19 @@ def discriminative_scalar_tree(sfeat):
 
     if var_ind<0.274:
         votes += 1
-    elif var_ind< 0.5:
-        votes += 0.5
-    elif var_ind<1:
-        votes += 0
+    #elif var_ind< 0.5:
+    #    votes += 0.5
     else:
-        votes -= 0.5
+        votes -= 5
 
-    if r31<0.8:
-        votes -= 0.5
-    elif r31<0.9:
-        votes += 0
-    elif r31<0.958:
-        votes +=1
-    else:
-        votes += 0.5
+    #if r31<0.8:
+    #    votes -= 3
+    #elif r31<0.9:
+    #    votes += 0
+    #elif r31<0.958:
+    #    votes +=1
+    #else:
+    #    votes += 0.5
 
     if rcs>0.34:
         votes +=1
@@ -93,17 +91,17 @@ def discriminative_scalar_tree(sfeat):
     elif rcs>0.2:
         votes += 0
     else:
-        votes -= 1
+        votes -= 5
 
     if l>291.3:
         votes += 1.5
     elif l>200:
         votes += 0.5
     else:
-        votes += 0
+        votes -= 5
 
     if band_width>20:
-        votes -= 1
+        votes -= 5
     elif band_width>7:
         votes += 0
     elif band_width>5:
@@ -120,8 +118,12 @@ def discriminative_scalar_tree(sfeat):
     elif stetk>0.75:
         votes += 0
     else:
-        votes -= 1
+        votes -= 5
     
+    #if h1<100:
+    #    votes += 10
+    
+
     return votes
 
 def is_chatter(tag):
@@ -136,7 +138,7 @@ def is_chatter(tag):
     lower = np.amin(slotted,axis=1)
     var = np.var(upper-lower)
 
-    return var>0.01367
+    return var>0.01230
 
 def isdirty(features,tag):
     return (sec_isdirty(features) or is_chatter(tag))
@@ -182,7 +184,7 @@ def cleanup(tags=None,datafinder: Data=None,verbose=False):
     cleaned_tags = np.array(cleaned_tags)
 
     print("-- Final Results After Cleanup --")
-    print(len(datafinder.stags),'->',a := tags.shape[0], '->',b := len(cleaned_tags))
+    print( len(datafinder.stags), '->', a := tags.shape[0], '->', b := len(cleaned_tags))
     if verbose:
         print("Data Reduction: ",round(100*(1-b/a),1))
     return cleaned_tags[:,1:]
