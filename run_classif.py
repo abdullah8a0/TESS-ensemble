@@ -7,10 +7,12 @@ import os.path
 from pathlib import Path
 import accuracy_model
 import feature_extract
+from param_descent import descend
+from plot_lc import plot_results
 
 ### settings you need to care about ### 
 
-sector = 32
+sector = 41
 #base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\"    #<- points to where the transient files are
 base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 #################
@@ -19,11 +21,10 @@ base = Path('/Users/abdullah/Desktop/UROP/Tess/sector_data/transient_lcs')
 # where does (39, 3, 4, 1754, 65) go?
 
 
-##########  'None' asks for values while running
+##########  
 
 
 training_sector = None 
-model_persistence = False
 show_TOI = False
 plot_tsne = False
 tsne_results = True
@@ -36,54 +37,38 @@ verbose = False
 
 lcobj.set_base(base)
 
-def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne_results,tsne_individual_clusters,verbose,vet_results):
-
-    #sector = int(input("sector: ")) if sector is None else sector
-    #plot_tsne = input("plot clusters (time consuming) (y/n): ") == 'y' if tsne_all_clusters is None else tsne_all_clusters
+def run_pipeline(sector,training_sector,tsne_all_clusters,tsne_results,tsne_individual_clusters,verbose,vet_results):
 
 
     sector2 = str(sector) if int(sector) > 9 else '0'+str(sector)
     if not os.path.isfile(Path(f"Features/{sector2}_scalar.csv")):
         print('Generating scalar features')
         feature_extract.extract_scalar_features(sector)
-    #if not os.path.isfile(Path(f"Features/{sector2}_vector.csv")):
-    #    print('Generating vector features')
-    #    feature_extract.extract_vector_features(sector)
     if not os.path.isfile(Path(f"Features/{sector2}_signat.csv")):
         print('Generating signat features')
         feature_extract.extract_signat_features(sector)
 
     data_api = accuracy_model.Data(sector,default='scalar')
-
-    # ENFORCE SUB TAGS/ REMOVE SECTOR
-    #                                                      5n          5n+3
     
     before_tags = data_api.stags
+    
     model = accuracy_model.AccuracyTest(before_tags)
-
-
-
-    kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
-        'training_sector':training_sector,'suppress':True,'score':blob_score}
-
-    after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=99,trials =1, seed = 137 , **kwargs)
+    kwargs = {'data_api' : data_api}
+    after_cluster =  model.test(data_api_model=data_api,target=descend,num=99,trials =1, seed = 137 , **kwargs)
     
-    while after_cluster.shape[0]>900:
-        model = accuracy_model.AccuracyTest(after_cluster)
-        kwargs = {'datafinder' : data_api, 'verbose':verbose,'plot_flag':plot_tsne, 'vet_clus' : tsne_individual_clusters,\
-             'training_sector':training_sector,'suppress':True,'score':struct_score,'forward':False}
-        
-        after_cluster = model.test(data_api_model=data_api,target=cluster_anomaly.cluster_and_plot,num=99,trials =1, seed = 137 , **kwargs)
-    
-    
+    new_data = cluster_anomaly.scale_simplify(data_api.get_some(after_cluster),False,18)
+    _,labels = cluster_anomaly.hdbscan_cluster(new_data,None,12,3,'euclidean')
+    cluster_anomaly.tsne_plot(sector,after_cluster,new_data,labels)
     
     #RTS_clusters = None
     #HTP_clusters = None 
-    #if tsne_individual_clusters:# para search after clean up
+    if tsne_individual_clusters:# para search after clean up
+        pass
     #    RTS_clusters = input("Which cluster labels correspond to RTS? ").split()
     #    HTP_clusters = input("Which cluster labels correspond to hot pixels? ").split()
     
     #effect_detection.find_effects(sector)
+
     data_api = accuracy_model.Data(sector,default='scalar',partial=False)
     model = accuracy_model.AccuracyTest(after_cluster) 
     kwargs = {'datafinder':data_api,'verbose': verbose}
@@ -147,32 +132,13 @@ def run_pipeline(sector,training_sector,model_persistence,tsne_all_clusters,tsne
         #print(len(lines))
         #new_file.close()
 
-def blob_score(anomalies,tags,**kwargs):
-    reduction = 1-sum(len(i) for i in anomalies)/tags.shape[0]
-    a,b ='*','.'
-    size,samp,clus_count = kwargs['size'],kwargs['samp'],kwargs['clus_count']
-    HIGH,LOW = 0.72,0.55
-    print(f'{size}, {samp}\t: {a if (HIGH>reduction>LOW) else b}\t{reduction}\n\t  {clus_count}')
-    if (HIGH>reduction>LOW):
-        print(f'{size}, {samp}\t: {a if (HIGH>reduction>LOW) else b}\t{reduction}\n\t  {clus_count}')
-        #return True
-    return False
-
-def struct_score(anomalies,tags,**kwargs):
-    size,samp,clus_count = kwargs['size'],kwargs['samp'],kwargs['clus_count']
-    a,b ='*','.'
-    print(f'{size}, {samp}\t: {a if (len(clus_count)>7) else b} \n\t  {clus_count}')
-    if len(clus_count)>100:
-        print(f'{size}, {samp}\t: {a if (len(clus_count)>7) else b} \n\t  {clus_count}')
-        #return True
-    return False
-
 
 if __name__ == '__main__':
 
     np.seterr(all='ignore')
     import time
     start = time.time()
-    run_pipeline(sector,training_sector,model_persistence,plot_tsne,tsne_results,tsne_individual_clusters,verbose,vet_results)
+    run_pipeline(sector,training_sector,plot_tsne,tsne_results,tsne_individual_clusters,verbose,vet_results)
     end = time.time()
     print(end-start)
+    plot_results(sector)

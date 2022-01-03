@@ -13,9 +13,9 @@ def classify(sector):
     data_api = accuracy_model.Data(sector,'scalar')
     tags = data.stags
 
-    passed_tags= cluster_and_plot(tags=tags,datafinder=data_api,verbose=True,suppress=True,score=run_classif.blob_score)
+    passed_tags,_= cluster_and_plot(tags=tags,datafinder=data_api,verbose=True,suppress=True,score=run_classif.blob_score)
     if passed_tags.shape[0]>1000:
-        passed_tags = cluster_and_plot(tags=passed_tags,datafinder=data_api,verbose=True,suppress=True,score=run_classif.struct_score)
+        passed_tags,_ = cluster_and_plot(tags=passed_tags,datafinder=data_api,verbose=True,suppress=True,score=run_classif.struct_score)
     tags = passed_tags
     model = accuracy_model.AccuracyTest(tags)
     ind,tags = model.insert(99)

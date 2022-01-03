@@ -201,19 +201,25 @@ class AccuracyTest:     # Generative vs Discriminative Model
             data_api_model.update_insert(ind)
 
             result_tags = target(tags=inserted_tags,**kwargs)
+            if isinstance(result_tags,tuple):
+                curr_res = result_tags[1]
+                result_tags = result_tags[0]
             print(f'Results calculated {target.__name__}')
 
             self.measure(data_api_model,result_tags)
             if i == trials-1:
-                post_test = self.clean(result_tags,data_api_model)
+                post_test,indexes = self.clean(result_tags,data_api_model,return_index=True)
             data_api_model.rollback_insert()
             pass
         #post_test = self.clean(result_tags,data_api_model)
         print(f'Reduction {len(self.tags)} -> {len(post_test)} = {round(100*(1-len(post_test)/len(self.tags)),2)}')
         #data_api_model.new_insert(old_ind)
-        return post_test
+        if isinstance(result_tags,tuple):
+            return post_test,curr_res[indexes]
+        else:
+            return post_test
     
-    def clean(self,post_tags,data_api: Data) -> np.ndarray:
+    def clean(self,post_tags,data_api: Data,return_index=False) -> np.ndarray:
         transients = post_tags[:,0] == -1
         #print(data_api.ind[-1])
         #input()
@@ -225,7 +231,10 @@ class AccuracyTest:     # Generative vs Discriminative Model
                 #input()
                 if data_api.lookup_tran(tag) not in data_api.ind[-1]:
                     transients[i] = not transients[i]
-        cleaned = post_tags[~transients] # np.where(post_tags[:,0] == -1,post_tags,np.array([]))
+        passed=(~transients)
+        cleaned = post_tags[passed] # np.where(post_tags[:,0] == -1,post_tags,np.array([]))
+        if return_index:
+            return cleaned,passed
         return cleaned
 
 

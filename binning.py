@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from accuracy_model import Data,transient_tags
 from lcobj import LC
 from cluster_anomaly import hdbscan_cluster, scale_simplify,tsne_plot,umap_plot

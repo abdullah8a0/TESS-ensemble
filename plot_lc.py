@@ -1,29 +1,56 @@
 from matplotlib import pyplot as plt
-from numpy.core.shape_base import block
 from accuracy_model import AccuracyTest, Data
-import accuracy_model
-from cleanup_anomaly import isdirty
-from TOI_gen import TOI_list
-from cluster_anomaly import hdbscan_cluster
+#import accuracy_model
+#from cluster_anomaly import hdbscan_cluster
 import os
-import math
-from scipy import signal, stats
-from sklearn.mixture import GaussianMixture
+#from sklearn.mixture import GaussianMixture
 from numpy.random import shuffle
 import lcobj
 import numpy as np
 from lcobj import LC, get_coords_from_path
-from run_classif import base
+#from run_classif import base
 from pathlib import Path
-import plotly.express as px
-import time
 
 #base = "C:\\Users\\saba saleemi\\Desktop\\UROP\\TESS\\transient_lcs\\unzipped_ccd\\" # Forced value of base
 
 
 
-lcobj.set_base(base)
+#lcobj.set_base(base)
 
+
+def plot_results(sector):
+    file_name = sector
+    file_path = Path(f'Results/{file_name}.csv')
+    #feat_tag,feat_data = data_api.stags,data_api.get_all(type='scalar')
+
+    raw_data = np.genfromtxt(file_path,delimiter = ',')
+    tags = raw_data[:,:4].astype('int32')
+    rand_tags = np.copy(tags)
+    print(tags.shape[0])
+    shuffle(rand_tags)
+
+    stack: list[LC] = []
+    for i,tag in enumerate(rand_tags):
+        if 9*(len(rand_tags)//9)<=i:
+            print(tuple(tag))
+            LC(sector,*tag).remove_outliers().plot()
+        elif i>0 and i%9 ==0:
+            fig, axs = plt.subplots(3, 3)
+            for j,lc in enumerate(stack):
+                axs[j%3,j//3].scatter(lc.time,lc.flux,s=0.5)
+                axs[j%3,j//3].set_title(f'{lc.cam}, {lc.ccd}, {lc.coords[0]}, {lc.coords[1]}')
+            #for ax in axs.flat:
+            #    ax.set(xlabel='x-label', ylabel='y-label')
+
+                # Hide x labels and tick labels for top plots and y ticks for right plots.
+            for ax in axs.flat:
+                ax.label_outer()
+            fig.show() 
+            plt.show()
+            stack = []
+        else:
+            assert False, "unreachable"
+        stack.append(LC(sector,*tag).remove_outliers())
 
 def plotter():
     choice = input("plot all, plot one, plot result file, plot transients candidates: ")
@@ -32,7 +59,6 @@ def plotter():
 
     path = Path(str(lcobj.gen_path(sector,cam,ccd,0,0))[:-6])
     if choice == '0':
-        user_in = None 
         with os.scandir(path) as entries:
             for i,entry in enumerate(entries):
                 if not entry.name.startswith('.') and entry.is_file():
@@ -229,9 +255,11 @@ def label(sector):
     step = np.array(step).astype('int32')
     np.savetxt(Path(f'{sector}_step.csv'),step, fmt='%1d',delimiter =',')
 if __name__ == '__main__':
-    plotter()
+    plot_results(43)
     exit()
     tags =[ 
+    (31, 2, 2, 753, 197),
+    (31, 4, 2, 1849, 1000),
     (45, 2, 4, 161, 694),
     (45, 3, 3, 1479, 2003),
     (45, 3, 3, 1215, 506),

@@ -1,19 +1,14 @@
-from matplotlib import pyplot as plt
 import numpy as np
-import sklearn
 from accuracy_model import Data
 import lcobj
 import concurrent.futures
-from scipy import stats
 import cluster_anomaly
-from sklearn.mixture import GaussianMixture
 from pathlib import Path
 
 def func(tag):
     lc = lcobj.LC(*tag).remove_outliers()
     granularity = 1.0/3           # In days
     bins = granularity*np.arange(round(27/granularity))
-    #print(bins)
     bin_map = np.digitize(lc.time-lc.time[0], bins)
 
     signature = []
@@ -24,8 +19,6 @@ def func(tag):
         _, ind = np.unique(time, return_index=True)
         flux, time = flux[ind], time[ind]
 
-        #print(bin,flux)
-        #input()
         if flux.size == 0:
             signature.append(0)
             continue
@@ -35,13 +28,6 @@ def func(tag):
             signature.append(0)
 
         total_d +=1
-    #time = [ [t for t in lc.time if lc.time[0] + hr8*granularity <= t < lc.time[0]+(hr8+1)*granularity] for hr8 in range(round(27/granularity))]
-    #fit = []
-    #for day in range(round(27/granularity)):
-    #    i = interesting_d[day]
-    #    fit += [i for t in time[day]]
-
-
     return [*tag,signature]
 
 
@@ -69,11 +55,11 @@ def cluster_secondary_run(sector,verbose=False):
 
     transformed_data = cluster_anomaly.scale_simplify(feat_s,verbose,feat_s.shape[1])
     metric = 'euclidean'#'precomputed'
-    clusterer,labels = cluster_anomaly.hdbscan_cluster(transformed_data,verbose,None,5,5,metric)
+    _,labels = cluster_anomaly.hdbscan_cluster(transformed_data,verbose,None,5,5,metric)
     cluster_anomaly.tsne_plot(tags,transformed_data,labels,with_sec=True)
 
 
-def forwarding(tags,data_api: Data = None,verbose=False):
+def forwarding(tags,data_api: Data = None):
     datafinder = data_api
     #tagsfinder = lcobj.TagFinder(tags)
     #sector = datafinder.sector
@@ -99,17 +85,17 @@ def forwarding(tags,data_api: Data = None,verbose=False):
         #print(f'{longs} + {slice} = {longs + slice}')
 
         cons = np.where(slice==0,slice,cons+slice)
-        short = np.where(cons==1,short + cons,short)
-        longs = np.where(cons==3,longs+slice,longs)
+        short:np.ndarray = np.where(cons==1,short + cons,short)
+        longs:np.ndarray = np.where(cons==3,longs+slice,longs)
 
     short = (short - longs).reshape(1,-1)[0]
     longs = longs.reshape(1,-1)[0]
 
     to_forward = np.logical_and(np.logical_and(longs<3,longs>0),short<2)
 
-    #h1_feat = sdata[:,datafinder.feat_ind['H1']]
+    h1_feat = sdata[:,datafinder.feat_ind['H1']]
 
-    #to_forward = np.logical_or(to_forward,h1_feat<=95)
+    to_forward = np.logical_or(to_forward,h1_feat<=95)
 
 
     return tags[np.ma.nonzero(to_forward)[0]]

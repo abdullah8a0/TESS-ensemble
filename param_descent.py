@@ -1,5 +1,4 @@
 from cluster_anomaly import cluster_and_plot,scale_simplify
-from run_classif import blob_score
 import numpy as np
 import concurrent.futures
 from accuracy_model import Data,AccuracyTest
@@ -39,14 +38,14 @@ def descend(tags:np.ndarray,data_api:Data=None)->tuple:
     transformed_data = scale_simplify(data,False,15)
 
     # Removal of main types of Light Curves
-    print("Starting Main Structure removal")
+    print("<<Starting Main Structure Removal>>")
     descended = False
     region = 0
     global_stats = {}   # center -> MAX_BELOW, MIN_ABOVE
     REGION = (0.55,0.72)
     num_decents = 0
-    print(f"Descent number: {num_decents}")
     while not descended and num_decents<3:
+        print(f"Descent number: {num_decents+1}")
         print(f"\tSearching region: {region}")
         #print(f"{REGION=}")
         cen_size,cen_samp = centers[region]
@@ -67,24 +66,6 @@ def descend(tags:np.ndarray,data_api:Data=None)->tuple:
             reduction = 1-(passthrough/(sum(struct)+anom))
             stats[(size,samp)] = (reduction,anom,struct)
 
-        #for size,samp in ((i,j) for i in range(cen_size-3,cen_size+3) for j in range(cen_samp-3,cen_samp+3) if i > 0 and j>0):
-        #    _, labels = hdbscan_cluster(transformed_data,None,size,samp,'euclidean')
-        #    num_clus =  np.max(labels)  #excluding anomalies and zero indexed
-        #    if num_clus < 1:
-        #        print(f'\t{size}, {samp}\t: No Clustering')
-        #        continue
-        #    else:
-        #        #print(size,samp)
-        #        pass
-
-        #    clus_count = [np.count_nonzero(labels == i) for i in range(-1,1+num_clus)]
-
-        #    anom ,struct = clus_count[0],clus_count[1:]
-        #    struct.sort(reverse=True)
-        #    passthrough = struct[0]*0.1 + anom
-        #    reduction = 1-(passthrough/(sum(struct)+anom))
-        #    stats[(size,samp)] = (reduction,anom,struct)
-        
         # (reduction, parameters)
         IN = []
         MAX_BELOW = (0,(-1,-1)) 
@@ -99,7 +80,7 @@ def descend(tags:np.ndarray,data_api:Data=None)->tuple:
 
         # find a good param
         # if cant ,go to new center
-        # if last center then check global_stats
+        # if last center then check global_stats for good enough param
         
         if IN:  # There is good clustering in region
             MID = (REGION[0]+REGION[1])/2
@@ -172,7 +153,6 @@ def descend(tags:np.ndarray,data_api:Data=None)->tuple:
             elif num_decents == 3:
                 REGION = REGION
             # TODO: update REGION
-        print(f"Descent number: {num_decents}")
     
     # center blob removed, now only structure remains
     tags = after_cluster
@@ -183,7 +163,7 @@ def descend(tags:np.ndarray,data_api:Data=None)->tuple:
     # STRUCTURE REMOVAL #
     #####################
     
-    print("Starting Sub-Structure removal")
+    print("<<Starting Sub-Structure Removal>>")
 
     centers = [ # 6x6
         (10,5),
@@ -205,8 +185,8 @@ def descend(tags:np.ndarray,data_api:Data=None)->tuple:
     REGION = (0.10,0.20)    # percentage explained
     num_decents = 0
 
-    print(f"Descent number: {num_decents}")
-    while not descended and num_decents<3:
+    while not descended and num_decents<2:
+        print(f"Descent number: {num_decents+1}")
         #print(f"{REGION=}")
         print(f"\tSearching region: {region}")
         cen_size,cen_samp = centers[region]
@@ -314,13 +294,11 @@ def descend(tags:np.ndarray,data_api:Data=None)->tuple:
             transformed_data = scale_simplify(data,False,15)
             print(f"Need to decend more, found: {curr_param}")
             if num_decents == 1:    # 0.10, 0.20
-                REGION = (.20,.40)
+                REGION = (.00,.30)
             elif num_decents == 2:
                 REGION = REGION
             elif num_decents == 3:
                 REGION = REGION
-        print(f"Descent number: {num_decents}")
-    pass
     return after_cluster
 
         
@@ -328,11 +306,11 @@ def descend(tags:np.ndarray,data_api:Data=None)->tuple:
 
 
 if __name__ == '__main__':
-    sector = 45
+    sector = 41
     data = Data(sector, 'scalar') 
     tags = data.stags  
     
-    descend(tags,data_api=data)
-    #model = AccuracyTest(tags)
-    #kwargs = {'data_api' : data}
-    #model.test(data_api_model=data,target=descend,num=99,trials =1, seed = 137 , **kwargs)
+    #descend(tags,data_api=data)
+    model = AccuracyTest(tags)
+    kwargs = {'data_api' : data}
+    model.test(data_api_model=data,target=descend,num=99,trials =1, seed = 137 , **kwargs)
